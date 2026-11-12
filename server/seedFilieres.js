@@ -83,16 +83,6 @@ const filieresSeed = [
     order_display: 8
   },
   {
-    name: 'Génie Energétique et systèmes intelligents',
-    abbreviation: 'GESI',
-    type: 'filiere',
-    documentation: 'https://docs.ensaf.ac.ma/home/fil/GESI.pdf',
-    drive: '',
-    responsable_pedagogique: 'À définir',
-    description: 'Formation en génie énergétique et systèmes intelligents.',
-    order_display: 9
-  },
-  {
     name: 'Génie Mécatronique',
     abbreviation: 'GMT',
     type: 'filiere',
@@ -100,7 +90,7 @@ const filieresSeed = [
     drive: '',
     responsable_pedagogique: 'À définir',
     description: 'Formation en génie mécatronique alliant mécanique, électronique et informatique.',
-    order_display: 10
+    order_display: 9
   },
   {
     name: 'Génie Industriel',
@@ -110,7 +100,7 @@ const filieresSeed = [
     drive: '',
     responsable_pedagogique: 'À définir',
     description: 'Formation en génie industriel et optimisation des processus.',
-    order_display: 11
+    order_display: 10
   },
   {
     name: 'Classes Préparatoires Intégrées',
@@ -120,7 +110,7 @@ const filieresSeed = [
     drive: '',
     responsable_pedagogique: 'À définir',
     description: 'Cycle préparatoire de 2 ans préparant aux études d\'ingénieur.',
-    order_display: 12
+    order_display: 11
   }
 ];
 

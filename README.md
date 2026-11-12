@@ -30,7 +30,7 @@ Or run in the background:
 docker compose up -d --build
 ```
 
-> At first startup, the backend automatically syncs Sequelize tables and creates a default admin account (`username: admin`, `email: admin@adei.ma`, `password: password`). **Change this password immediately after logging in.**
+> At first startup, the backend automatically syncs Sequelize tables and creates a default admin account (`username: admin`, `email: adei_ensa@gmail.com`, `password: password`). **Change this password immediately after logging in.**
 
 ### 4. Restore a MySQL Dump from `./backups`
 1. Place your `.sql` backup file inside the `./backups/` directory (for example `backups/adei_backup.sql`). It is automatically mounted inside the MySQL container at `/backups/`.
