@@ -89,7 +89,7 @@ const Feedbacks = () => {
       if (res.ok) {
         setSuccess(data.message);
         setFormData({ name: user.username, type: 'avis', message: '' }); // Reset but keep username
-        setTimeout(() => setSuccess(''), 5001);
+        setTimeout(() => setSuccess(''), 5000);
         
         // Refresh feedbacks after successful submission
         const refreshResponse = await fetch(API_ENDPOINTS.FEEDBACKS_PUBLIC);
@@ -224,16 +224,6 @@ const Feedbacks = () => {
                         {feedback.user ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
                             <UserBadges user={feedback.user} size="medium" />
-                            {/* Debug info - remove this later */}
-                            {(feedback.user.is_president || feedback.user.is_representant || feedback.user.is_membre_adei || feedback.user.is_bureau_adei) ? null : (
-                              <span style={{ 
-                                fontSize: '0.7rem', 
-                                color: '#888',
-                                marginLeft: '8px'
-                              }}>
-                                (utilisateur sans badges spéciaux)
-                              </span>
-                            )}
                           </div>
                         ) : (
                           <span style={{ 

@@ -29,7 +29,11 @@ class ErrorBoundary extends React.Component {
           <h2>Quelque chose s'est mal passé</h2>
           <p>Une erreur inattendue s'est produite. Veuillez rafraîchir la page.</p>
           <button 
-            onClick={() => window.location.href = '/'}
+            type="button"
+            onClick={() => {
+              this.setState({ hasError: false });
+              window.location.hash = '#/';
+            }}
             style={{
               padding: '10px 20px',
               backgroundColor: '#ff3b30',

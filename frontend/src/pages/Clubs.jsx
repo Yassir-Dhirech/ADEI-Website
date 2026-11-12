@@ -217,7 +217,7 @@ const Clubs = () => {
             <div className="card-grid">
             {clubs.map((club, index) => (
               <div
-                key={club._id}
+                key={club.id || club._id || index}
                 className={`club-card ${pageReady ? 'slide-up' : ''}`}
                 style={{ 
                   animationDelay: pageReady ? `${0.4 + index * 0.1}s` : '0s',
@@ -381,28 +381,6 @@ const Clubs = () => {
                   )}
                 </div>
 
-                {/* Observations si elles existent */}
-                {club.observations && (
-                  <div className="info-card" style={{ 
-                    marginBottom: 'var(--spacing-lg)',
-                    background: 'var(--bg-secondary)',
-                    padding: 'var(--spacing-md)',
-                    borderRadius: 'var(--radius-lg)',
-                    border: '1px solid var(--card-border)'
-                  }}>
-                    <h4 style={{ 
-                      margin: '0 0 var(--spacing-xs) 0',
-                      color: 'var(--text-primary)',
-                      fontSize: 'var(--font-size-md)'
-                    }}>
-                      Observations
-                    </h4>
-                    <p style={{ margin: 0, color: 'var(--text-muted)' }}>
-                      {club.observations}
-                    </p>
-                  </div>
-                )}
-
                 {/* Bouton "Voir les détails" centré en bas */}
                 <div style={{ 
                   display: 'flex', 
@@ -495,9 +473,6 @@ const Clubs = () => {
                       </h3>
                       <p><strong>Président :</strong> {selectedClub.president}</p>
                       <p><strong>Année d'étude :</strong> {selectedClub.annees_etude}</p>
-                      {selectedClub.meetings && (
-                        <p><strong>Réunions :</strong> {selectedClub.meetings}</p>
-                      )}
                     </div>
 
                     {/* Contacts */}
@@ -713,15 +688,6 @@ const Clubs = () => {
                   )
                 )}
 
-                {/* Observations */}
-                {selectedClub.observations && (
-                  <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-                    <h3 style={{ color: 'var(--color-primary)', marginBottom: 'var(--spacing-sm)' }}>
-                      Observations
-                    </h3>
-                    <p style={{ lineHeight: '1.6' }}>{selectedClub.observations}</p>
-                  </div>
-                )}
               </div>
 
               {/* Footer du modal */}

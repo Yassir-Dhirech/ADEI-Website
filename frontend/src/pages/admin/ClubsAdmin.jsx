@@ -80,11 +80,9 @@ const ClubsAdmin = () => {
       activities: '',
       achievements: '',
       members: 0,
-      meetings: '',
       facebook: '',
       instagram: '',
-      linkedin: '',
-      observations: ''
+      linkedin: ''
     });
     setImageFile(null);
     setImagePreview(null);
@@ -409,24 +407,24 @@ const ClubsAdmin = () => {
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">Réunions</label>
-                      <input
-                        type="text"
+                      <label className="form-label">Activités (séparées par des virgules)</label>
+                      <textarea
                         className="form-input"
-                        value={formData.meetings || ''}
-                        onChange={(e) => setFormData({ ...formData, meetings: e.target.value })}
-                        placeholder="ex: Tous les mardis à 14h"
+                        rows="3"
+                        value={formData.activities || ''}
+                        onChange={(e) => setFormData({ ...formData, activities: e.target.value })}
+                        placeholder="ex: Ateliers hebdomadaires, Compétitions nationales, Projets collaboratifs"
                       />
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">Observations</label>
+                      <label className="form-label">Réalisations (séparées par des virgules)</label>
                       <textarea
                         className="form-input"
                         rows="3"
-                        value={formData.observations || ''}
-                        onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
-                        placeholder="Observations particulières"
+                        value={formData.achievements || ''}
+                        onChange={(e) => setFormData({ ...formData, achievements: e.target.value })}
+                        placeholder="ex: 1er prix Hackathon 2024, Organisation du Forum annuel"
                       />
                     </div>
                   </div>

@@ -3,11 +3,25 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
 
 const { authMiddleware, adminMiddleware, JWT_SECRET } = require('./middleware/auth');
+
+const UPLOAD_DIR = path.resolve(__dirname, 'uploads');
+
+const safeDeleteUpload = (fileUrl) => {
+  if (!fileUrl || typeof fileUrl !== 'string' || fileUrl === '/images/default.jpg') {
+    return;
+  }
+  const relativePath = fileUrl.replace(/^\/+/, '');
+  const resolvedPath = path.resolve(__dirname, relativePath);
+  if (resolvedPath.startsWith(UPLOAD_DIR + path.sep) && fs.existsSync(resolvedPath)) {
+    fs.unlinkSync(resolvedPath);
+  }
+};
 
 // Import API interface with error handling
 let getApiInterface;
@@ -80,7 +94,7 @@ const asyncWrapper = (fn) => {
 const sequelize = require('./config/database');
 const { Op } = require('sequelize');
 const models = require('./models');
-const { User, News, Event, Club, Feedback, ADEIMember, Filiere, Partner, Cycle, AcademicYear, Section } = models;
+const { User, News, Event, Club, Feedback, ADEIMember, Filiere, Partner } = models;
 
 
 // Field whitelists to prevent mass assignment
@@ -91,7 +105,7 @@ const ALLOWED_FIELDS = {
   feedbacks: ['name', 'email', 'type', 'message'],
   'adei-members': ['name', 'role', 'email', 'photo'],
   partners: ['name', 'description', 'website', 'logo', 'facebook', 'instagram', 'whatsapp', 'isActive', 'order_display'],
-  filieres: ['name', 'abbreviation', 'type', 'documentation', 'drive', 'description', 'isActive', 'order_display', 'responsable_pedagogique', 'responsable_contact', 'delegue_cp1_a', 'tel_delegue_cp1_a', 'delegue_cp1_b', 'tel_delegue_cp1_b', 'delegue_cp1_c', 'tel_delegue_cp1_c', 'delegue_cp2_a', 'tel_delegue_cp2_a', 'delegue_cp2_b', 'tel_delegue_cp2_b', 'delegue_cp2_c', 'tel_delegue_cp2_c', 'delegue_annee1', 'tel_delegue_annee1', 'delegue_annee2', 'tel_delegue_annee2', 'delegue_annee3', 'tel_delegue_annee3', 'cycle_id'],
+  filieres: ['name', 'abbreviation', 'type', 'documentation', 'drive', 'description', 'isActive', 'order_display', 'responsable_pedagogique', 'responsable_contact', 'delegue_cp1_a', 'tel_delegue_cp1_a', 'delegue_cp1_b', 'tel_delegue_cp1_b', 'delegue_cp1_c', 'tel_delegue_cp1_c', 'delegue_cp2_a', 'tel_delegue_cp2_a', 'delegue_cp2_b', 'tel_delegue_cp2_b', 'delegue_cp2_c', 'tel_delegue_cp2_c', 'delegue_annee1', 'tel_delegue_annee1', 'delegue_annee2', 'tel_delegue_annee2', 'delegue_annee3', 'tel_delegue_annee3'],
   users: ['username', 'email', 'password', 'role', 'is_president', 'is_representant', 'is_membre_adei', 'is_bureau_adei']
 };
 
@@ -106,22 +120,24 @@ const pickFields = (body, type) => {
   return result;
 };
 
-// Import academic routes with error handling
-let academicRoutes;
-try {
-  academicRoutes = require('./routes/academic');
-} catch (error) {
-  console.error('Warning: Could not load academic routes:', error.message);
-  // Create a dummy router as fallback
-  const express = require('express');
-  academicRoutes = express.Router();
-  academicRoutes.get('*', (req, res) => {
-    res.status(503).json({ error: 'Academic routes temporarily unavailable' });
-  });
-}
-
 const app = express();
 const PORT = process.env.PORT || 5001;
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Trop de tentatives de connexion, veuillez réessayer plus tard.' }
+});
+
+const feedbackLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Trop de feedbacks envoyés, veuillez réessayer plus tard.' }
+});
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -141,7 +157,7 @@ app.use(cors({
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   optionsSuccessStatus: 200 // Pour supporter les anciens navigateurs
 }));
@@ -153,9 +169,6 @@ app.use((req, res, next) => {
 });
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Use academic routes
-app.use('/api/academic', academicRoutes);
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -379,11 +392,15 @@ app.get('/', (req, res) => {
 });
 
 // Routes d'authentification
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', loginLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
 
-    const user = await User.findOne({ where: { email } });
+    if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
+      return res.status(400).json({ success: false, message: 'Email et mot de passe requis' });
+    }
+
+    const user = await User.findOne({ where: { email: email.trim() } });
     if (!user) {
       return res.status(401).json({ success: false, message: 'Identifiants invalides' });
     }
@@ -479,12 +496,12 @@ app.post('/api/news', authMiddleware, adminMiddleware, upload.fields([
   { name: 'document', maxCount: 1 }
 ]), async (req, res) => {
   try {
-    const newsData = { ...req.body };
+    const newsData = pickFields(req.body, 'news');
 
     // Handle special organizer values
     if (newsData.clubId === 'adei' || newsData.clubId === 'ensa') {
       newsData.organizer = newsData.clubId === 'adei' ? 'ADEI' : 'Administration ENSA Fès';
-      delete newsData.clubId; // Remove clubId for special values
+      newsData.clubId = null;
     }
 
     // Convert clubId to null if empty string
@@ -494,7 +511,7 @@ app.post('/api/news', authMiddleware, adminMiddleware, upload.fields([
 
     // Convert clubId to integer if it's a valid number
     if (newsData.clubId && !isNaN(newsData.clubId)) {
-      newsData.clubId = parseInt(newsData.clubId);
+      newsData.clubId = parseInt(newsData.clubId, 10);
     }
 
     if (req.files) {
@@ -528,17 +545,22 @@ app.put('/api/news/:id', authMiddleware, adminMiddleware, upload.fields([
   { name: 'document', maxCount: 1 }
 ]), async (req, res) => {
   try {
-    const newsData = { ...req.body };
+    const newsData = pickFields(req.body, 'news');
 
     // Handle special organizer values
     if (newsData.clubId === 'adei' || newsData.clubId === 'ensa') {
       newsData.organizer = newsData.clubId === 'adei' ? 'ADEI' : 'Administration ENSA Fès';
-      delete newsData.clubId; // Remove clubId for special values
+      newsData.clubId = null;
     }
 
     // Convert clubId to null if empty string
     if (newsData.clubId === '' || newsData.clubId === 'null' || newsData.clubId === 'undefined') {
       newsData.clubId = null;
+    }
+
+    // Convert clubId to integer if it's a valid number
+    if (newsData.clubId && !isNaN(newsData.clubId)) {
+      newsData.clubId = parseInt(newsData.clubId, 10);
     }
 
     if (req.files) {
@@ -572,6 +594,7 @@ app.delete('/api/news/:id', authMiddleware, adminMiddleware, async (req, res) =>
   try {
     const deleted = await News.destroy({ where: { id: req.params.id } });
     if (deleted) {
+      clearCache('news');
       res.json({ success: true, message: 'Actualité supprimée' });
     } else {
       res.status(404).json({ message: 'Actualité non trouvée' });
@@ -617,12 +640,12 @@ app.post('/api/events', authMiddleware, adminMiddleware, upload.fields([
   { name: 'document', maxCount: 1 }
 ]), async (req, res) => {
   try {
-    const eventData = { ...req.body };
+    const eventData = pickFields(req.body, 'events');
 
     // Handle special organizer values
     if (eventData.clubId === 'adei' || eventData.clubId === 'ensa') {
       eventData.organizer = eventData.clubId === 'adei' ? 'ADEI' : 'Administration ENSA Fès';
-      delete eventData.clubId; // Remove clubId for special values
+      eventData.clubId = null;
     }
 
     // Convert clubId to null if empty string
@@ -632,7 +655,7 @@ app.post('/api/events', authMiddleware, adminMiddleware, upload.fields([
 
     // Convert clubId to integer if it's a valid number
     if (eventData.clubId && !isNaN(eventData.clubId)) {
-      eventData.clubId = parseInt(eventData.clubId);
+      eventData.clubId = parseInt(eventData.clubId, 10);
     }
 
     if (req.files) {
@@ -666,17 +689,22 @@ app.put('/api/events/:id', authMiddleware, adminMiddleware, upload.fields([
   { name: 'document', maxCount: 1 }
 ]), async (req, res) => {
   try {
-    const eventData = { ...req.body };
+    const eventData = pickFields(req.body, 'events');
 
     // Handle special organizer values
     if (eventData.clubId === 'adei' || eventData.clubId === 'ensa') {
       eventData.organizer = eventData.clubId === 'adei' ? 'ADEI' : 'Administration ENSA Fès';
-      delete eventData.clubId; // Remove clubId for special values
+      eventData.clubId = null;
     }
 
     // Convert clubId to null if empty string
     if (eventData.clubId === '' || eventData.clubId === 'null' || eventData.clubId === 'undefined') {
       eventData.clubId = null;
+    }
+
+    // Convert clubId to integer if it's a valid number
+    if (eventData.clubId && !isNaN(eventData.clubId)) {
+      eventData.clubId = parseInt(eventData.clubId, 10);
     }
 
     if (req.files) {
@@ -710,6 +738,7 @@ app.delete('/api/events/:id', authMiddleware, adminMiddleware, async (req, res) 
   try {
     const deleted = await Event.destroy({ where: { id: req.params.id } });
     if (deleted) {
+      clearCache('events');
       res.json({ success: true, message: 'Événement supprimé' });
     } else {
       res.status(404).json({ message: 'Événement non trouvé' });
@@ -851,12 +880,7 @@ app.put('/api/clubs/:id', authMiddleware, adminMiddleware, upload.single('image'
     const clubData = pickFields(req.body, 'clubs');
     if (req.file) {
       // Delete old image if it exists and a new one is uploaded
-      if (club.image) {
-        const oldImagePath = path.join(__dirname, club.image);
-        if (fs.existsSync(oldImagePath)) {
-          fs.unlinkSync(oldImagePath);
-        }
-      }
+      safeDeleteUpload(club.image);
       clubData.image = `/uploads/${req.file.filename}`;
     }
 
@@ -901,12 +925,7 @@ app.delete('/api/clubs/:id', authMiddleware, adminMiddleware, async (req, res) =
     }
 
     // Delete associated image file
-    if (club.image) {
-      const imagePath = path.join(__dirname, club.image);
-      if (fs.existsSync(imagePath)) {
-        fs.unlinkSync(imagePath);
-      }
-    }
+    safeDeleteUpload(club.image);
 
     await club.destroy();
 
@@ -983,7 +1002,7 @@ app.get('/api/feedbacks', authMiddleware, adminMiddleware, async (req, res) => {
   }
 });
 
-app.post('/api/feedbacks', async (req, res) => {
+app.post('/api/feedbacks', feedbackLimiter, async (req, res) => {
   try {
     const feedbackData = pickFields(req.body, 'feedbacks');
 
@@ -995,15 +1014,12 @@ app.post('/api/feedbacks', async (req, res) => {
         const decoded = jwt.verify(token, JWT_SECRET);
         // Use decoded.id instead of decoded.userId
         feedbackData.userId = decoded.id || decoded.userId;
-        console.log('Feedback submitted by user ID:', feedbackData.userId);
       } catch (tokenError) {
         // Token is invalid, but we still allow anonymous feedback
-        console.log('Invalid token for feedback, proceeding as anonymous');
       }
     }
 
-    const feedback = await Feedback.create(feedbackData);
-    console.log('Feedback created:', feedback.toJSON());
+    await Feedback.create(feedbackData);
     res.status(201).json({ success: true, message: 'Votre feedback a été envoyé avec succès!' });
   } catch (error) {
     console.error('Error creating feedback:', error);
@@ -1066,17 +1082,30 @@ app.get('/api/users/me', authMiddleware, async (req, res) => {
   }
 });
 
+// Password security info endpoint
+app.get('/api/users/password-security', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.userId;
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'lastPasswordChange']
+    });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
+    }
+    res.json({
+      success: true,
+      data: { lastPasswordChange: user.lastPasswordChange }
+    });
+  } catch (error) {
+    console.error('Error fetching password security:', error);
+    res.status(500).json({ success: false, message: 'Erreur lors de la récupération des informations de sécurité' });
+  }
+});
+
 // Change password endpoint
 app.post('/api/users/change-password', authMiddleware, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-
-    console.log('Change password request:', {
-      userId: req.user.id,
-      userObject: req.user,
-      hasCurrentPassword: !!currentPassword,
-      hasNewPassword: !!newPassword
-    });
 
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ success: false, message: 'Mot de passe actuel et nouveau mot de passe requis' });
@@ -1087,33 +1116,26 @@ app.post('/api/users/change-password', authMiddleware, async (req, res) => {
     }
 
     // Use req.user.id from JWT token
-    const userId = req.user.id;
-    console.log('Looking for user with ID:', userId);
-
+    const userId = req.user.id || req.user.userId;
     const user = await User.findByPk(userId);
     if (!user) {
-      console.log('User not found with ID:', userId);
       return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
     }
-
-    console.log('User found:', { id: user.id, username: user.username });
 
     // Verify current password
     const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
     if (!isCurrentPasswordValid) {
-      console.log('Current password is invalid for user:', user.username);
       return res.status(400).json({ success: false, message: 'Mot de passe actuel incorrect' });
     }
-
-    console.log('Current password is valid, updating password...');
 
     // Hash new password
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-    // Update password
-    await user.update({ password: hashedNewPassword });
-
-    console.log('Password updated successfully for user:', user.username);
+    // Update password and timestamp
+    await user.update({
+      password: hashedNewPassword,
+      lastPasswordChange: new Date()
+    });
 
     res.json({ success: true, message: 'Mot de passe modifié avec succès' });
   } catch (error) {
@@ -1136,7 +1158,20 @@ app.get('/api/users', authMiddleware, adminMiddleware, async (req, res) => {
 
 app.post('/api/users', authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    const { username, email, password, role } = req.body;
+    const {
+      username,
+      email,
+      password,
+      role,
+      is_president,
+      is_representant,
+      is_membre_adei,
+      is_bureau_adei
+    } = req.body || {};
+
+    if (!username || !email || !password) {
+      return res.status(400).json({ message: 'Nom d\'utilisateur, email et mot de passe requis' });
+    }
 
     const existingUser = await User.findOne({
       where: {
@@ -1155,7 +1190,11 @@ app.post('/api/users', authMiddleware, adminMiddleware, async (req, res) => {
       username,
       email,
       password: hashedPassword,
-      role: role || 'user'
+      role: role === 'admin' ? 'admin' : 'user',
+      is_president: Boolean(is_president),
+      is_representant: Boolean(is_representant),
+      is_membre_adei: Boolean(is_membre_adei),
+      is_bureau_adei: Boolean(is_bureau_adei)
     });
 
     const userResponse = user.toJSON();
@@ -1169,37 +1208,26 @@ app.post('/api/users', authMiddleware, adminMiddleware, async (req, res) => {
 
 app.put('/api/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    console.log('=== USER UPDATE REQUEST ===');
-    console.log('User ID:', req.params.id);
-    console.log('Request body:', req.body);
-
-    const { username, email, password, role, is_president, is_representant, is_membre_adei, is_bureau_adei } = req.body;
-    const updateData = { username, email, role };
-
-    // Add badge fields to update data
-    console.log('Badge values received:');
-    console.log('is_president:', is_president, typeof is_president);
-    console.log('is_representant:', is_representant, typeof is_representant);
-    console.log('is_membre_adei:', is_membre_adei, typeof is_membre_adei);
-    console.log('is_bureau_adei:', is_bureau_adei, typeof is_bureau_adei);
+    const { username, email, password, role, is_president, is_representant, is_membre_adei, is_bureau_adei } = req.body || {};
+    const updateData = {};
+    if (username !== undefined) updateData.username = username;
+    if (email !== undefined) updateData.email = email;
+    if (role === 'user' || role === 'admin') updateData.role = role;
 
     if (typeof is_president === 'boolean') updateData.is_president = is_president;
     if (typeof is_representant === 'boolean') updateData.is_representant = is_representant;
     if (typeof is_membre_adei === 'boolean') updateData.is_membre_adei = is_membre_adei;
     if (typeof is_bureau_adei === 'boolean') updateData.is_bureau_adei = is_bureau_adei;
 
-    console.log('Final update data:', updateData);
-
     if (password) {
       updateData.password = await bcrypt.hash(password, 10);
+      updateData.lastPasswordChange = new Date();
     }
 
     const [updated] = await User.update(updateData, { where: { id: req.params.id } });
-    console.log('Update result:', updated);
 
     if (updated) {
       const user = await User.findByPk(req.params.id, { attributes: { exclude: ['password'] } });
-      console.log('Updated user:', user.toJSON());
       res.json(user);
     } else {
       res.status(404).json({ message: 'Utilisateur non trouvé' });
@@ -1275,11 +1303,8 @@ app.put('/api/adei-members/:id', authMiddleware, adminMiddleware, upload.single(
 app.delete('/api/adei-members/:id', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const member = await ADEIMember.findByPk(req.params.id);
-    if (member && member.photo && member.photo !== '/images/default.jpg') {
-      const photoPath = path.join(__dirname, member.photo);
-      if (fs.existsSync(photoPath)) {
-        fs.unlinkSync(photoPath);
-      }
+    if (member) {
+      safeDeleteUpload(member.photo);
     }
     const deleted = await ADEIMember.destroy({ where: { id: req.params.id } });
     if (deleted) {
@@ -1460,11 +1485,8 @@ app.put('/api/partners/:id', authMiddleware, adminMiddleware, upload.single('log
 app.delete('/api/partners/:id', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const partner = await Partner.findByPk(req.params.id);
-    if (partner && partner.logo && partner.logo !== '/images/default.jpg') {
-      const logoPath = path.join(__dirname, partner.logo);
-      if (fs.existsSync(logoPath)) {
-        fs.unlinkSync(logoPath);
-      }
+    if (partner) {
+      safeDeleteUpload(partner.logo);
     }
     const deleted = await Partner.destroy({ where: { id: req.params.id } });
     if (deleted) {
@@ -1475,6 +1497,48 @@ app.delete('/api/partners/:id', authMiddleware, adminMiddleware, async (req, res
   } catch (error) {
     console.error('Erreur suppression partenaire:', error);
     res.status(500).json({ message: 'Erreur lors de la suppression du partenaire' });
+  }
+});
+
+// Reorder partners
+app.patch('/api/partners/:id/reorder', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { direction } = req.body;
+
+    const partners = await Partner.findAll({
+      where: { isActive: true },
+      order: [['order_display', 'ASC'], ['name', 'ASC']]
+    });
+
+    const currentIndex = partners.findIndex(p => String(p.id) === String(id));
+    if (currentIndex === -1) {
+      return res.status(404).json({ message: 'Partenaire non trouvé' });
+    }
+
+    let targetIndex;
+    if (direction === 'up' && currentIndex > 0) {
+      targetIndex = currentIndex - 1;
+    } else if (direction === 'down' && currentIndex < partners.length - 1) {
+      targetIndex = currentIndex + 1;
+    } else {
+      return res.json({ success: true, message: 'Aucun changement nécessaire' });
+    }
+
+    // Normalize sequential order_display before swapping
+    for (let i = 0; i < partners.length; i++) {
+      if (partners[i].order_display !== i) {
+        await partners[i].update({ order_display: i });
+      }
+    }
+
+    await partners[currentIndex].update({ order_display: targetIndex });
+    await partners[targetIndex].update({ order_display: currentIndex });
+
+    res.json({ success: true, message: 'Ordre modifié avec succès' });
+  } catch (error) {
+    console.error('Erreur reorder partner:', error);
+    res.status(500).json({ message: 'Erreur lors de la modification de l\'ordre' });
   }
 });
 
@@ -1564,6 +1628,20 @@ app.patch('/api/events/:id/reorder', authMiddleware, adminMiddleware, async (req
 
 // Middleware global de gestion d'erreurs (doit être à la fin)
 app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError || (err.message && err.message.includes('Seules les images'))) {
+    return res.status(400).json({
+      success: false,
+      message: err.message || 'Erreur lors du téléchargement du fichier',
+      code: 'UPLOAD_ERROR'
+    });
+  }
+  if (err.type === 'entity.parse.failed' || err.status === 400) {
+    return res.status(400).json({
+      success: false,
+      message: 'Requête JSON invalide',
+      code: 'BAD_REQUEST'
+    });
+  }
   const context = `${req.method} ${req.path}`;
   const errorResponse = handleApiError(err, context);
   res.status(500).json(errorResponse);

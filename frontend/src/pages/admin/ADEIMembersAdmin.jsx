@@ -168,7 +168,7 @@ const ADEIMembersAdmin = () => {
             'success'
           );
         } else {
-          showNotification(
+          showModalNotification(
             result.message || `Erreur lors de la ${editingItem ? 'modification' : 'création'}`,
             'error'
           );
@@ -200,7 +200,7 @@ const ADEIMembersAdmin = () => {
             'success'
           );
         } else {
-          showNotification(
+          showModalNotification(
             result.message || `Erreur lors de la ${editingItem ? 'modification' : 'création'}`,
             'error'
           );
@@ -272,7 +272,7 @@ const ADEIMembersAdmin = () => {
                       {modalNotification.type === 'success' ? (
                         <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       ) : (
-                        <path d="M12 9v2m05L13.732 4c-.77-.833-1.964-.833-2.732 0L3.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
                       )}
                     </svg>
                     {modalNotification.message}
@@ -363,6 +363,7 @@ const ADEIMembersAdmin = () => {
                         <option value="IT Manager">IT Manager</option>
                         <option value="IT Team">IT Team</option>
                         <option value="Représentant des étudiants étrangers">Représentant des étudiants étrangers</option>
+                        <option value="Représentant des Lauréats">Représentant des Lauréats</option>
                         <option value="Affaires Administratives">Affaires Administratives</option>
                         <option value="Responsable Media">Responsable Media</option>
                         <option value="Responsable Interne">Responsable Interne</option>
@@ -433,7 +434,7 @@ const ADEIMembersAdmin = () => {
               {notification.type === 'success' ? (
                 <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               ) : (
-                <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.73264-.833-2.732 0L3.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
               )}
             </svg>
             {notification.message}

@@ -10,6 +10,24 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [lastActivity, setLastActivity] = useState(Date.now());
 
+  const logout = useCallback(async () => {
+    try {
+      if (token) {
+        await fetch(API_ENDPOINTS.LOGOUT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        });
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setToken(null);
+      setUser(null);
+      localStorage.removeItem('token');
+    }
+  }, [token]);
+
   // Logout automatique après inactivité
   useEffect(() => {
     if (!token) return;
@@ -17,13 +35,12 @@ export const AuthProvider = ({ children }) => {
     const checkInactivity = setInterval(() => {
       const now = Date.now();
       if (now - lastActivity > INACTIVITY_TIMEOUT) {
-        console.log('Session expirée par inactivité');
         logout();
       }
     }, 60000); // Vérifier toutes les minutes
 
     return () => clearInterval(checkInactivity);
-  }, [token, lastActivity]);
+  }, [token, lastActivity, logout]);
 
   // Mettre à jour l'activité sur les interactions utilisateur
   useEffect(() => {
@@ -45,8 +62,30 @@ export const AuthProvider = ({ children }) => {
   }, [token]);
 
   useEffect(() => {
+    const decodeValidTokenFallback = (rawToken) => {
+      try {
+        const payload = JSON.parse(atob(rawToken.split('.')[1]));
+        if (payload.exp && payload.exp * 1000 < Date.now()) {
+          throw new Error('Token expiré');
+        }
+        setUser({
+          id: payload.id,
+          username: payload.username,
+          email: payload.email,
+          role: payload.role,
+          is_president: false,
+          is_representant: false,
+          is_membre_adei: false,
+          is_bureau_adei: false
+        });
+      } catch (error) {
+        setToken(null);
+        setUser(null);
+        localStorage.removeItem('token');
+      }
+    };
+
     if (token && !user) {
-      // Fetch full user profile from server (including badges)
       const fetchUserProfile = async () => {
         try {
           const response = await fetch(API_ENDPOINTS.USER_PROFILE, {
@@ -55,54 +94,17 @@ export const AuthProvider = ({ children }) => {
           
           if (response.ok) {
             const userData = await response.json();
-            console.log('Setting user from server:', userData);
             setUser(userData);
+          } else if (response.status === 401 || response.status === 403) {
+            setToken(null);
+            setUser(null);
+            localStorage.removeItem('token');
           } else {
-            // If profile fetch fails, try to decode token as fallback
-            try {
-              const payload = JSON.parse(atob(token.split('.')[1]));
-              const userData = {
-                id: payload.id,
-                username: payload.username,
-                email: payload.email,
-                role: payload.role,
-                // Default badge values
-                is_president: false,
-                is_representant: false,
-                is_membre_adei: false,
-                is_bureau_adei: false
-              };
-              console.log('Setting user from token (fallback):', userData);
-              setUser(userData);
-            } catch (error) {
-              console.error('Error decoding token:', error);
-              setToken(null);
-              localStorage.removeItem('token');
-            }
+            decodeValidTokenFallback(token);
           }
         } catch (error) {
           console.error('Error fetching user profile:', error);
-          // Fallback to token decoding
-          try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            const userData = {
-              id: payload.id,
-              username: payload.username,
-              email: payload.email,
-              role: payload.role,
-              // Default badge values
-              is_president: false,
-              is_representant: false,
-              is_membre_adei: false,
-              is_bureau_adei: false
-            };
-            console.log('Setting user from token (error fallback):', userData);
-            setUser(userData);
-          } catch (tokenError) {
-            console.error('Error decoding token:', tokenError);
-            setToken(null);
-            localStorage.removeItem('token');
-          }
+          decodeValidTokenFallback(token);
         }
       };
       
@@ -136,42 +138,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const logout = useCallback(async () => {
-    try {
-      if (token) {
-        await fetch(API_ENDPOINTS.LOGOUT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token }),
-        });
-      }
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      setToken(null);
-      setUser(null);
-      localStorage.removeItem('token');
-    }
-  }, [token]);
-
-  const fetchMessages = useCallback(async () => {
-    try {
-      const response = await fetch(API_ENDPOINTS.FEEDBACKS, {
-        headers: { Authorization: token },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        return { success: true, data };
-      } else {
-        const errorData = await response.json();
-        return { success: false, message: errorData.message };
-      }
-    } catch (error) {
-      return { success: false, message: 'Erreur lors du chargement des messages' };
-    }
-  }, [token]);
-
   const refreshUserProfile = useCallback(async () => {
     if (!token) return;
     
@@ -182,7 +148,6 @@ export const AuthProvider = ({ children }) => {
       
       if (response.ok) {
         const userData = await response.json();
-        console.log('Refreshing user profile:', userData);
         setUser(userData);
         return { success: true, user: userData };
       } else {
@@ -200,7 +165,6 @@ export const AuthProvider = ({ children }) => {
       user,
       login,
       logout,
-      fetchMessages,
       refreshUserProfile
     }}>
       {children}

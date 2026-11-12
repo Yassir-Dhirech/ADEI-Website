@@ -112,8 +112,9 @@ const MembersOrgChart = ({ members, className = "" }) => {
   };
 
   const MemberCard = ({ member, department, isCenter = false, size = 'normal' }) => {
+    const memberId = member.id || member._id;
     const isLarge = size === 'large' || isCenter;
-    const isHovered = hoveredMember?.id === member._id;
+    const isHovered = hoveredMember?.id === memberId;
     
     // Special sizing for Communication & Design section
     const isCommDesign = department.title === 'Communication & Design';
@@ -140,7 +141,7 @@ const MembersOrgChart = ({ members, className = "" }) => {
     
     return (
       <div
-        onMouseEnter={() => setHoveredMember({ id: member._id, department: department.title })}
+        onMouseEnter={() => setHoveredMember({ id: memberId, department: department.title })}
         onMouseLeave={() => setHoveredMember(null)}
         style={{
           background: 'var(--card-bg)',
@@ -481,7 +482,7 @@ const MembersOrgChart = ({ members, className = "" }) => {
               }}>
                 {members.filter(m => !['President', 'Vice President'].includes(m.role)).map((member, index) => (
                   <MemberCard 
-                    key={member._id || index} 
+                    key={member.id || member._id || index} 
                     member={member} 
                     department={department}
                     size="medium"
@@ -504,7 +505,7 @@ const MembersOrgChart = ({ members, className = "" }) => {
           }}>
             {members.map((member, index) => (
               <MemberCard 
-                key={member._id || index} 
+                key={member.id || member._id || index} 
                 member={member} 
                 department={department}
               />
@@ -648,7 +649,7 @@ const MembersOrgChart = ({ members, className = "" }) => {
             fontWeight: 'bold',
             color: 'var(--text-primary)'
           }}>
-            {members.find(m => m._id === hoveredMember.id)?.name}
+            {members.find(m => (m.id || m._id) === hoveredMember.id)?.name}
           </p>
           <p style={{
             margin: '0 0 8px 0',
@@ -656,7 +657,7 @@ const MembersOrgChart = ({ members, className = "" }) => {
             color: 'var(--primary)',
             fontWeight: '600'
           }}>
-            {members.find(m => m._id === hoveredMember.id)?.role}
+            {members.find(m => (m.id || m._id) === hoveredMember.id)?.role}
           </p>
           <p style={{
             margin: '0',

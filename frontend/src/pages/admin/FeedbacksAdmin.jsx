@@ -59,6 +59,28 @@ const FeedbacksAdmin = () => {
     }
   };
 
+  const handleMarkAsRead = async (id) => {
+    try {
+      const response = await fetch(getApiUrl(`feedbacks/${id}/read`), {
+        method: 'PUT',
+        headers: { Authorization: token }
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        await fetchFeedbacks();
+        setViewingFeedback((prev) => (prev && prev.id === id ? { ...prev, read: true } : prev));
+        showNotification('Feedback marqué comme lu', 'success');
+      } else {
+        showNotification(result.message || 'Erreur lors de la mise à jour', 'error');
+      }
+    } catch (error) {
+      logger.error('Erreur lors de la mise à jour du statut');
+      showNotification('Erreur lors de la mise à jour du statut', 'error');
+    }
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce feedback ?')) return;
 
@@ -104,8 +126,9 @@ const FeedbacksAdmin = () => {
                        (item.email && item.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
                        (item.message && item.message.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    if (filterStatus === 'all') return matchSearch;
-    return matchSearch && (item.status === filterStatus);
+    if (filterStatus === 'unread') return matchSearch && !item.read;
+    if (filterStatus === 'read') return matchSearch && Boolean(item.read);
+    return matchSearch;
   }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   const formatDate = (date) => {
@@ -154,9 +177,8 @@ const FeedbacksAdmin = () => {
                   style={{ flex: 0.5 }}
                 >
                   <option value="all">Tous les statuts</option>
-                  <option value="new">Non lus</option>
+                  <option value="unread">Non lus</option>
                   <option value="read">Lus</option>
-                  <option value="resolved">Résolus</option>
                 </select>
               </div>
 
@@ -182,7 +204,7 @@ const FeedbacksAdmin = () => {
                         exit={{ opacity: 0, y: -20 }}
                         style={{
                           background: 'linear-gradient(135deg, var(--black-card) 0%, var(--black-hover) 100%)',
-                          border: `1px solid ${feedback.status === 'new' ? 'var(--primary)' : 'var(--gray-800)'}`,
+                          border: `1px solid ${!feedback.read ? 'var(--primary)' : 'var(--gray-800)'}`,
                           borderRadius: 'var(--radius-lg)',
                           padding: '1.5rem',
                           cursor: 'pointer',
@@ -196,7 +218,7 @@ const FeedbacksAdmin = () => {
                         onMouseLeave={(e) => {
                           e.currentTarget.style.transform = 'translateY(0)';
                           e.currentTarget.style.boxShadow = 'none';
-                          e.currentTarget.style.borderColor = feedback.status === 'new' ? 'var(--primary)' : 'var(--gray-800)';
+                          e.currentTarget.style.borderColor = !feedback.read ? 'var(--primary)' : 'var(--gray-800)';
                         }}
                         onClick={() => openFeedbackModal(feedback)}
                       >
@@ -214,13 +236,9 @@ const FeedbacksAdmin = () => {
                             </div>
                           </div>
                           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                            {feedback.status === 'new' && (
+                            {!feedback.read ? (
                               <span className="badge primary" style={{ marginRight: '0.5rem' }}>Nouveau</span>
-                            )}
-                            {feedback.status === 'resolved' && (
-                              <span className="badge success">Résolu</span>
-                            )}
-                            {feedback.status === 'read' && (
+                            ) : (
                               <span className="badge info">Lu</span>
                             )}
                           </div>
@@ -256,6 +274,21 @@ const FeedbacksAdmin = () => {
                         )}
 
                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--gray-800)' }}>
+                          {!feedback.read && (
+                            <button
+                              type="button"
+                              className="admin-action-btn edit"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMarkAsRead(feedback.id || feedback._id);
+                              }}
+                              title="Marquer comme lu"
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="20 6 9 17 4 12"/>
+                              </svg>
+                            </button>
+                          )}
                           <button
                             className="admin-action-btn delete"
                             onClick={(e) => {
@@ -330,9 +363,11 @@ const FeedbacksAdmin = () => {
                     <div className="form-group">
                       <label className="form-label">Statut</label>
                       <div className="feedback-detail-value">
-                        {viewingFeedback.status === 'new' && <span className="badge primary">Nouveau</span>}
-                        {viewingFeedback.status === 'read' && <span className="badge info">Lu</span>}
-                        {viewingFeedback.status === 'resolved' && <span className="badge success">Résolu</span>}
+                        {!viewingFeedback.read ? (
+                          <span className="badge primary">Non lu</span>
+                        ) : (
+                          <span className="badge info">Lu</span>
+                        )}
                       </div>
                     </div>
 
@@ -382,6 +417,15 @@ const FeedbacksAdmin = () => {
 
               <div className="modal-footer">
                 <button className="btn-modal secondary" onClick={closeModal}>Fermer</button>
+                {!viewingFeedback.read && (
+                  <button
+                    type="button"
+                    className="btn-modal primary"
+                    onClick={() => handleMarkAsRead(viewingFeedback.id || viewingFeedback._id)}
+                  >
+                    Marquer comme lu
+                  </button>
+                )}
                 <button
                   className="btn-modal delete"
                   onClick={() => handleDelete(viewingFeedback.id || viewingFeedback._id)}

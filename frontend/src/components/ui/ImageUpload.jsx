@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useId, useEffect } from 'react';
 import { getImageUrl } from '../../config/api';
 
 const ImageUpload = ({ 
@@ -12,6 +12,8 @@ const ImageUpload = ({
   cropAspectRatio = null, // e.g., 16/9, 1, 4/3, null for free crop
   defaultAspectRatio = null // Default aspect ratio to apply when image is loaded
 }) => {
+  const inputId = useId();
+  const fileInputRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
@@ -29,6 +31,14 @@ const ImageUpload = ({
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
   const containerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview && imagePreview.startsWith('blob:')) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview]);
 
   const handleFileSelect = (file) => {
     if (!file) return;
@@ -375,14 +385,14 @@ const ImageUpload = ({
   };
 
   const displayImage = imagePreview || (currentImage ? getImageUrl(currentImage) : null);
-  const inputId = `image-upload-${Math.random()}`;
 
   return (
     <div className={`form-group ${className}`}>
-      <label className="form-label">{label}</label>
+      <label className="form-label" htmlFor={inputId}>{label}</label>
       
       <div className="image-upload-container">
         <input
+          ref={fileInputRef}
           id={inputId}
           type="file"
           accept={accept}
@@ -515,7 +525,7 @@ const ImageUpload = ({
                       setShowEditor(true);
                     } else {
                       // No existing image, open file selector
-                      document.getElementById(inputId).click();
+                      fileInputRef.current?.click();
                     }
                   }}
                   title={currentImage && !imagePreview ? "Modifier l'image actuelle" : imagePreview ? "Modifier l'image" : "Ajouter une image"}
@@ -528,7 +538,7 @@ const ImageUpload = ({
                 <button
                   type="button"
                   className="image-action-btn replace"
-                  onClick={() => document.getElementById(inputId).click()}
+                  onClick={() => fileInputRef.current?.click()}
                   title="Changer l'image"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -805,7 +815,7 @@ const ImageUpload = ({
         ) : (
           <div 
             className={`image-upload-placeholder ${dragOver ? 'drag-over' : ''}`}
-            onClick={() => document.getElementById(inputId).click()}
+            onClick={() => fileInputRef.current?.click()}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}

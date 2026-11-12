@@ -29,17 +29,14 @@ const NewsAdmin = () => {
     // Déclarer fetchNews et fetchClubs AVANT le useEffect
     const fetchClubs = async () => {
       try {
-        console.log('Chargement des clubs...');
         const response = await fetch(API_ENDPOINTS.CLUBS);
         
         if (!response.ok) {
-          console.error('Erreur HTTP clubs:', response.status);
           setClubsData([]);
           return;
         }
         
         const clubsResult = await response.json();
-        console.log('Données des clubs reçues:', clubsResult);
         
         let clubs = [];
         if (clubsResult.success && Array.isArray(clubsResult.data)) {
@@ -48,15 +45,12 @@ const NewsAdmin = () => {
           clubs = clubsResult;
         }
         
-        // Validation: s'assurer que chaque club a au moins id et club
         const validatedClubs = Array.isArray(clubs) 
           ? clubs.filter(club => club && club.id && club.club)
           : [];
         
-        console.log('Clubs validés:', validatedClubs.length);
         setClubsData(validatedClubs);
       } catch (error) {
-        console.error('Erreur lors du chargement des clubs:', error);
         logger.error('Erreur lors du chargement des clubs');
         setClubsData([]);
       }
@@ -65,22 +59,14 @@ const NewsAdmin = () => {
     const fetchNews = async () => {
       setLoading(true);
       try {
-        console.log('Chargement des actualités...');
-        console.log('URL:', API_ENDPOINTS.NEWS);
         const response = await fetch(API_ENDPOINTS.NEWS);
         
-        console.log('Réponse HTTP:', response.status, response.statusText);
         if (!response.ok) {
-          console.error('Erreur HTTP news:', response.status);
           setNewsData([]);
           return;
         }
         
         const newsResult = await response.json();
-        console.log('Données des actualités reçues:', newsResult);
-        console.log('Type de newsResult:', typeof newsResult);
-        console.log('newsResult.success:', newsResult.success);
-        console.log('newsResult.data:', newsResult.data);
         
         let news = [];
         if (newsResult.success && Array.isArray(newsResult.data)) {
@@ -91,21 +77,12 @@ const NewsAdmin = () => {
           news = newsResult.data;
         }
         
-        console.log('News avant validation:', news);
-        // Validation: s'assurer que chaque actualité a au moins les champs essentiels
         const validatedNews = Array.isArray(news) 
-          ? news.filter(item => {
-              const isValid = item && item.id && item.title;
-              console.log('Validation item:', item?.id, item?.title, '=', isValid);
-              return isValid;
-            })
+          ? news.filter(item => item && item.id && item.title)
           : [];
         
-        console.log('Actualités validées:', validatedNews.length);
-        console.log('NewsData va être mis à jour avec:', validatedNews);
         setNewsData(validatedNews);
       } catch (error) {
-        console.error('Erreur lors du chargement des actualités:', error);
         logger.error('Erreur lors du chargement des actualités');
         setNewsData([]);
       } finally {
@@ -115,30 +92,21 @@ const NewsAdmin = () => {
 
     useEffect(() => {
       try {
-        console.log('=== USEEFFECT NEWS ADMIN ===');
-        console.log('token:', token ? 'présent' : 'absent');
-        console.log('user:', user);
-        console.log('user?.role:', user?.role);
-        
         if (!token) {
-          console.log('❌ Pas de token, redirection vers login');
           navigate('/login');
           return;
         }
         
         if (user === null) {
-          console.log('⏳ User est null, affichage du loader');
           setAuthLoading(true);
           return;
         }
         
         if (user.role !== 'admin') {
-          console.log('❌ User n\'est pas admin, redirection vers accueil');
           navigate('/');
           return;
         }
         
-        console.log('✅ Authentification OK, appel de fetchNews et fetchClubs');
         setAuthLoading(false);
         fetchNews();
         fetchClubs();
@@ -204,7 +172,13 @@ const NewsAdmin = () => {
 
   const handleEdit = (item) => {
     setEditingItem(item);
-    setFormData({ ...item });
+    let clubIdValue = item.clubId ? String(item.clubId) : '';
+    if (!clubIdValue && item.organizer === 'ADEI') {
+      clubIdValue = 'adei';
+    } else if (!clubIdValue && item.organizer === 'Administration ENSA Fès') {
+      clubIdValue = 'ensa';
+    }
+    setFormData({ ...item, clubId: clubIdValue });
     setImageFile(null);
     setImagePreview(null);
     setShowModal(true);
@@ -290,26 +264,22 @@ const NewsAdmin = () => {
       
       // Add all form fields except files and metadata
       Object.keys(formData).forEach(key => {
-        if (key !== '_id' && key !== 'id' && key !== '__v' && key !== 'createdAt' && key !== 'updatedAt' && key !== 'image' && key !== 'documentFile') {
+        if (key !== '_id' && key !== 'id' && key !== '__v' && key !== 'createdAt' && key !== 'updatedAt' && key !== 'image' && key !== 'documentFile' && key !== 'club') {
           if (key === 'clubId') {
             // Handle special organizer values
             if (formData[key] === 'adei') {
-              console.log('🏢 Ajout organisateur ADEI');
+              formDataObj.append('clubId', 'adei');
               formDataObj.append('organizer', 'ADEI');
             } else if (formData[key] === 'ensa') {
-              console.log('🏢 Ajout organisateur Administration ENSA');
+              formDataObj.append('clubId', 'ensa');
               formDataObj.append('organizer', 'Administration ENSA Fès');
             } else if (formData[key]) {
-              console.log('🏢 Ajout clubId:', formData[key]);
               formDataObj.append(key, formData[key]);
             }
           } else if (key === 'organizer') {
             // Only add custom organizer if no special clubId is selected
             if (formData.clubId !== 'adei' && formData.clubId !== 'ensa' && formData[key]) {
-              console.log('👤 Ajout organisateur personnalisé:', formData[key]);
               formDataObj.append(key, formData[key]);
-            } else {
-              console.log('👤 Organisateur personnalisé ignoré (clubId spécial sélectionné)');
             }
           } else if (formData[key] !== null && formData[key] !== undefined && formData[key] !== '') {
             formDataObj.append(key, formData[key]);
@@ -389,13 +359,6 @@ const NewsAdmin = () => {
     news.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     news.content?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  console.log('=== RENDU DU TABLEAU ===');
-  console.log('newsData.length:', newsData.length);
-  console.log('searchTerm:', searchTerm);
-  console.log('filteredNews.length:', filteredNews.length);
-  console.log('loading:', loading);
-  console.log('authLoading:', authLoading);
 
   const renderModal = () => {
     return (
@@ -809,7 +772,8 @@ const NewsAdmin = () => {
         <h2>Erreur du composant</h2>
         <p>Une erreur s'est produite dans le composant NewsAdmin: {error?.message}</p>
         <button 
-          onClick={() => window.location.href = '/'}
+          type="button"
+          onClick={() => navigate('/')}
           style={{
             padding: '10px 20px',
             backgroundColor: '#ff3b30',

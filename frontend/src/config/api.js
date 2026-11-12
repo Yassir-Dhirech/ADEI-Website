@@ -1,12 +1,13 @@
 // Configuration de l'API
-const API_BASE_URL = process.env.NODE_ENV === 'development'
-  ? 'http://localhost:5001'
-  : 'https://api.adei-ensaf.ma';
+const API_BASE_URL = process.env.REACT_APP_API_URL || (
+  process.env.NODE_ENV === 'development'
+    ? 'http://localhost:5001'
+    : 'https://api.adei-ensaf.ma'
+);
 
 export const API_ENDPOINTS = {
   // Auth
   LOGIN: `${API_BASE_URL}/api/login`,
-  REGISTER: `${API_BASE_URL}/api/register`,
   LOGOUT: `${API_BASE_URL}/api/logout`,
 
   // Data
@@ -20,10 +21,8 @@ export const API_ENDPOINTS = {
   USER_PROFILE: `${API_BASE_URL}/api/users/me`,
 
   // User interactions
-  CONTACT: `${API_BASE_URL}/api/contact`,
   FEEDBACKS: `${API_BASE_URL}/api/feedbacks`,
   FEEDBACKS_PUBLIC: `${API_BASE_URL}/api/feedbacks/public`,
-  MESSAGES: `${API_BASE_URL}/api/messages`,
 };
 
 // Fonction wrapper pour fetch avec headers anti-bot

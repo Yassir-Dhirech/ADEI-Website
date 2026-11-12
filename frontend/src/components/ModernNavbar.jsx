@@ -90,7 +90,6 @@ const ModernNavbar = () => {
               className="logo-image"
               onError={(e) => {
                 e.target.style.display = 'none';
-                e.target.nextSibling.style.display = 'flex';
               }}
             />
             
@@ -165,7 +164,10 @@ const ModernNavbar = () => {
                   <Link
                     to="/profile"
                     className="modern-auth-item"
-                    onClick={() => setIsMobileMenuOpen(false)}
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      setIsAuthDropdownOpen(false);
+                    }}
                   >
                     <NavIcons.Profile />
                     <span>Mon Profil</span>
@@ -174,7 +176,10 @@ const ModernNavbar = () => {
                     <Link
                       to="/admin"
                       className="modern-auth-item"
-                      onClick={() => setIsMobileMenuOpen(false)}
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        setIsAuthDropdownOpen(false);
+                      }}
                     >
                       <NavIcons.Admin />
                       <span>Panneau Admin</span>
@@ -192,7 +197,10 @@ const ModernNavbar = () => {
                 <Link
                   to="/login"
                   className="modern-auth-item"
-                  onClick={() => setIsMobileMenuOpen(false)}
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setIsAuthDropdownOpen(false);
+                  }}
                 >
                   <NavIcons.Login />
                   <span>Se connecter</span>

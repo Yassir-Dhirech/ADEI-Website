@@ -104,7 +104,7 @@ const News = () => {
             <div className="card-grid">
               {displayedArticles.map((article, index) => (
                 <div
-                  key={article._id}
+                  key={article.id || article._id || index}
                   className={`card ${pageReady ? 'slide-up' : ''}`}
                   style={{ animationDelay: pageReady ? `${0.4 + index * 0.1}s` : '0s' }}
                 >

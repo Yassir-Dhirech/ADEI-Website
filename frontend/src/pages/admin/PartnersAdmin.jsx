@@ -191,7 +191,7 @@ const PartnersAdmin = () => {
             'success'
           );
         } else {
-          showNotification(
+          showModalNotification(
             result.message || `Erreur lors de la ${editingItem ? 'modification' : 'création'}`,
             'error'
           );
@@ -229,7 +229,7 @@ const PartnersAdmin = () => {
             'success'
           );
         } else {
-          showNotification(
+          showModalNotification(
             result.message || `Erreur lors de la ${editingItem ? 'modification' : 'création'}`,
             'error'
           );

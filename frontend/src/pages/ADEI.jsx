@@ -57,53 +57,8 @@ const ADEI = () => {
     fetchMembers();
     fetchPartners();
     
-    // Remove any green dots that might be added dynamically
-    const removeGreenDots = () => {
-      // Remove any elements that might be green dots
-      const potentialDots = document.querySelectorAll('*[style*="green"], *[style*="#00ff00"], *[style*="#008000"], *[style*="rgb(0, 255, 0)"]');
-      potentialDots.forEach(dot => {
-        if (dot.closest('.member-card') || dot.closest('.adei-member-card')) {
-          dot.style.display = 'none';
-          dot.remove();
-        }
-      });
-      
-      // Remove any small circular elements near member photos
-      const memberCards = document.querySelectorAll('.member-card, .adei-member-card');
-      memberCards.forEach(card => {
-        const smallElements = card.querySelectorAll('*');
-        smallElements.forEach(el => {
-          const style = window.getComputedStyle(el);
-          const width = parseInt(style.width);
-          const height = parseInt(style.height);
-          const borderRadius = style.borderRadius;
-          
-          // Remove small circular elements that might be status dots
-          if (width <= 16 && height <= 16 && borderRadius.includes('50%')) {
-            el.style.display = 'none';
-            el.remove();
-          }
-          
-          // Remove any green colored elements
-          if (style.backgroundColor.includes('green') || 
-              style.backgroundColor.includes('rgb(0, 255, 0)') ||
-              style.backgroundColor.includes('rgb(0, 128, 0)') ||
-              style.backgroundColor.includes('#00ff00') ||
-              style.backgroundColor.includes('#008000')) {
-            el.style.display = 'none';
-            el.remove();
-          }
-        });
-      });
-    };
-    
-    // Run immediately and then periodically
-    removeGreenDots();
-    const interval = setInterval(removeGreenDots, 1000);
-    
     return () => {
       clearTimeout(timer);
-      clearInterval(interval);
     };
   }, []);
 
@@ -169,7 +124,7 @@ const ADEI = () => {
 
     return (
       <motion.div
-        key={member._id}
+        key={member.id || member._id}
         variants={itemVariants}
         whileHover={{
           y: -8,

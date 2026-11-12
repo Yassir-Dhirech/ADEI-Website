@@ -64,7 +64,7 @@ const AnimatedClubs = ({
             <AnimatePresence>
               {clubs.map((club, index) => (
                 <motion.div
-                  key={club._id || index}
+                  key={club.id || club._id || index}
                   initial={{
                     opacity: 0,
                     scale: 0.9,

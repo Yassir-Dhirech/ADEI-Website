@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { AuthProvider } from './AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import ModernNavbar from './components/ModernNavbar';
@@ -13,16 +13,11 @@ import Events from './pages/Events';
 import Clubs from './pages/Clubs';
 import ENSA from './pages/ENSA';
 import ADEI from './pages/ADEI';
-import ClubDetails from './pages/ClubDetails';
 import Feedbacks from './pages/Feedbacks';
 import Login from './pages/Login';
-import Contact from './pages/Contact';
-import Messages from './pages/Messages';
 import Profile from './pages/Profile';
 
 // Lazy Loaded Admin & Heavy Components
-const AdminPanel = lazy(() => import('./pages/AdminPanel'));
-const ImageUploadTest = lazy(() => import('./components/ui/ImageUploadTest'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const FilieresAdmin = lazy(() => import('./pages/admin/FilieresAdmin'));
 const ClubsAdmin = lazy(() => import('./pages/admin/ClubsAdmin'));
@@ -39,6 +34,8 @@ import './styles/modern-navbar.css';
 
 // 404 Page Component
 function NotFound() {
+  const navigate = useNavigate();
+
   return (
     <div style={{ 
       padding: '50px 20px', 
@@ -52,7 +49,8 @@ function NotFound() {
       <h1>404 - Page non trouvée</h1>
       <p>La page que vous recherchez n'existe pas.</p>
       <button 
-        onClick={() => window.location.href = '/'}
+        type="button"
+        onClick={() => navigate('/')}
         style={{
           padding: '10px 20px',
           backgroundColor: '#ff3b30',
@@ -94,10 +92,7 @@ function AppContent() {
               <Route path="/clubs" element={<Clubs />} />
               <Route path="/ensa" element={<ENSA />} />
               <Route path="/adei" element={<ADEI />} />
-              <Route path="/club/:clubId" element={<ClubDetails />} />
               <Route path="/feedbacks" element={<Feedbacks />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/messages" element={<Messages />} />
               <Route path="/login" element={<Login />} />
               <Route path="/profile" element={
                 <ProtectedRoute>
@@ -149,12 +144,6 @@ function AppContent() {
                   <FeedbacksAdmin />
                 </ProtectedRoute>
               } />
-              <Route path="/admin/legacy" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <AdminPanel />
-                </ProtectedRoute>
-              } />
-              <Route path="/test-image-upload" element={<ImageUploadTest />} />
               {/* Catch-all route for 404 */}
               <Route path="*" element={<NotFound />} />
             </Routes>

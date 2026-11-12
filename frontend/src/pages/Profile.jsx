@@ -1,10 +1,14 @@
-import { useContext, useState, useEffect } from 'react';
+import { useContext, useState, useEffect, useId, useCallback } from 'react';
 import { AuthContext } from '../AuthContext';
+import { getApiUrl } from '../config/api';
 import UserBadges from '../components/ui/UserBadges';
 import Typewriter from '../components/ui/Typewriter';
 
 const Profile = () => {
   const { user, token, refreshUserProfile } = useContext(AuthContext);
+  const currentPasswordId = useId();
+  const newPasswordId = useId();
+  const confirmPasswordId = useId();
   const [pageReady, setPageReady] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordData, setPasswordData] = useState({
@@ -66,7 +70,7 @@ const Profile = () => {
       if (!token) return;
       
       try {
-        const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/users/password-security`, {
+        const response = await fetch(getApiUrl('users/password-security'), {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -146,9 +150,7 @@ const Profile = () => {
     setPasswordLoading(true);
     
     try {
-      console.log('Sending password change request...');
-      
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5001'}/api/users/change-password`, {
+      const response = await fetch(getApiUrl('users/change-password'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -191,7 +193,7 @@ const Profile = () => {
     }
   };
 
-  const closePasswordModal = () => {
+  const closePasswordModal = useCallback(() => {
     setShowPasswordModal(false);
     setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     setShowCurrentPassword(false);
@@ -199,7 +201,18 @@ const Profile = () => {
     setShowConfirmPassword(false);
     setPasswordValidation({ length: false, match: false, different: false });
     document.body.style.overflow = 'unset';
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!showPasswordModal) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        closePasswordModal();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showPasswordModal, closePasswordModal]);
 
   if (!user) {
     return (
@@ -605,16 +618,18 @@ const Profile = () => {
             <form onSubmit={handlePasswordChange}>
               {/* Mot de passe actuel */}
               <div className="form-group">
-                <label className="form-label">
+                <label className="form-label" htmlFor={currentPasswordId}>
                   Mot de passe actuel
                 </label>
                 <div style={{ position: 'relative' }}>
                   <input
+                    id={currentPasswordId}
                     type={showCurrentPassword ? "text" : "password"}
                     value={passwordData.currentPassword}
                     onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
                     className="form-input"
                     placeholder="Entrez votre mot de passe actuel"
+                    autoComplete="current-password"
                     required
                     style={{
                       color: 'var(--text-primary)',
@@ -626,6 +641,8 @@ const Profile = () => {
                   <button
                     type="button"
                     onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    aria-label={showCurrentPassword ? "Masquer le mot de passe actuel" : "Afficher le mot de passe actuel"}
+                    aria-pressed={showCurrentPassword}
                     style={{
                       position: 'absolute',
                       right: '15px',
@@ -659,16 +676,18 @@ const Profile = () => {
 
               {/* Nouveau mot de passe */}
               <div className="form-group">
-                <label className="form-label">
+                <label className="form-label" htmlFor={newPasswordId}>
                   Nouveau mot de passe
                 </label>
                 <div style={{ position: 'relative' }}>
                   <input
+                    id={newPasswordId}
                     type={showNewPassword ? "text" : "password"}
                     value={passwordData.newPassword}
                     onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                     className="form-input"
                     placeholder="Entrez le nouveau mot de passe"
+                    autoComplete="new-password"
                     required
                     minLength="6"
                     style={{
@@ -684,6 +703,8 @@ const Profile = () => {
                   <button
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
+                    aria-label={showNewPassword ? "Masquer le nouveau mot de passe" : "Afficher le nouveau mot de passe"}
+                    aria-pressed={showNewPassword}
                     style={{
                       position: 'absolute',
                       right: '15px',
@@ -767,16 +788,18 @@ const Profile = () => {
 
               {/* Confirmer le nouveau mot de passe */}
               <div className="form-group">
-                <label className="form-label">
+                <label className="form-label" htmlFor={confirmPasswordId}>
                   Confirmer le nouveau mot de passe
                 </label>
                 <div style={{ position: 'relative' }}>
                   <input
+                    id={confirmPasswordId}
                     type={showConfirmPassword ? "text" : "password"}
                     value={passwordData.confirmPassword}
                     onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                     className="form-input"
                     placeholder="Confirmez le nouveau mot de passe"
+                    autoComplete="new-password"
                     required
                     minLength="6"
                     style={{
@@ -792,6 +815,8 @@ const Profile = () => {
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    aria-label={showConfirmPassword ? "Masquer la confirmation du mot de passe" : "Afficher la confirmation du mot de passe"}
+                    aria-pressed={showConfirmPassword}
                     style={{
                       position: 'absolute',
                       right: '15px',
