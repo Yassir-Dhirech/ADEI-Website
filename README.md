@@ -1,264 +1,60 @@
-# ADEI Site - Application Complète
-
-Cette application web complète gère le site de l'Association des Étudiants Ingénieurs (ADEI). Le projet est divisé en deux parties :
-
-* **frontend/** : Application React (frontend) affichant les pages du site (accueil, actualités, événements, clubs, ENSA, ADEI, feedback)
-* **server/** : Serveur Node.js/Express (backend) avec API REST et base de données MongoDB
-
-## 🔧 Configuration et Installation
-
-### Prérequis
-
-- Node.js (version 14 ou supérieure)
-- MySQL installé localement
-- npm ou yarn
-
-### 1. Configuration de la Base de Données
-
-Assurez-vous que MongoDB est installé et en cours d'exécution :
-
-```bash
-# Démarrer MongoDB localement
-mongod
-```
-
-La base de données `adei-db` sera créée automatiquement lors de la première connexion.
-
-### 2. Installation du Backend
-
-```bash
-cd server
-npm install
-```
-
-### 3. Configuration des Variables d'Environnement
-
-Le fichier `server/.env` est déjà configuré pour une connexion MongoDB locale :
-
-```
-MONGODB_URI=mongodb://localhost:27017/adei-db
-JWT_SECRET=your_jwt_secret_key_here
-PORT=5001
-```
-
-### 4. Démarrage du Serveur Backend
-
-```bash
-cd server
-node index.js
-```
-
-Le serveur démarre sur `http://localhost:5001`.
-
-**Note importante** : Au premier démarrage, un compte administrateur par défaut est automatiquement créé :
-- **Username:** `admin`
-- **Email:** `admin@adei.ma`
-- **Password:** `password`
-- **Role:** `admin`
-
-⚠️ **Changez ce mot de passe après la première connexion pour des raisons de sécurité !**
-
-### 5. Installation et Démarrage du Frontend
-
-```bash
-cd frontend
-npm install
-npm start
-```
-
-L'application frontend démarre sur `http://localhost:3000`.
-
-## 🎯 Fonctionnalités
-
-### Pages Publiques
-- **Accueil** : Page d'accueil avec présentation de l'ADEI
-- **Actualités** : Liste des actualités (données depuis `/api/news`)
-- **Événements** : Liste des événements (données depuis `/api/events`)
-- **Clubs** : Présentation des clubs étudiants (données depuis `/api/clubs`)
-- **ENSA** : Informations sur l'École Nationale des Sciences Appliquées
-- **ADEI** : Présentation de l'association
-
-### Fonctionnalités d'Authentification
-- **Connexion** : Système d'authentification avec JWT
-- **Pas d'inscription publique** : Seul l'administrateur peut créer de nouveaux utilisateurs
-
-### Espace Adhérent
-- **Feedback** : Les adhérents peuvent soumettre des avis et réclamations
-- **Consultation de leurs messages** : Voir l'historique et les réponses
-
-### Espace Administrateur
-- **Gestion des utilisateurs** : Créer, modifier, supprimer des utilisateurs avec attribution de rôles
-- **Gestion des messages** : Consulter tous les feedbacks et y répondre
-- **Système de rôles** : admin, adherent, user, guest
-
-## 👥 Système de Rôles
-
-### Rôles Disponibles
-
-1. **admin** : Accès complet à toutes les fonctionnalités
-   - Gestion des utilisateurs
-   - Réponse aux feedbacks
-   - Accès à toutes les pages d'administration
-
-2. **adherent** : Membre actif de l'association
-   - Peut soumettre des avis et réclamations
-   - Peut consulter ses propres messages
-
-3. **user** : Utilisateur standard
-   - Accès aux pages publiques
-   - Peut consulter les informations
-
-4. **guest** : Invité (rôle par défaut)
-   - Accès limité aux pages publiques
-
-## 🔐 Sécurité
-
-### Authentification
-- JWT (JSON Web Tokens) pour la gestion des sessions
-- Tokens stockés dans localStorage côté client
-- Middleware d'authentification sur le backend
-
-### Hachage des Mots de Passe
-- bcryptjs pour le hachage sécurisé des mots de passe
-- Salt rounds : 10
-
-### Rate Limiting
-- Limitation à 5 tentatives de connexion par 15 minutes
-- Protection contre les attaques par force brute
-
-### Helmet.js
-- Protection contre les vulnérabilités web courantes
-- Headers de sécurité HTTP
-
-## 📡 API Endpoints
-
-### Authentification
-- `POST /api/auth/login` - Connexion
-- `POST /api/auth/logout` - Déconnexion
-- `GET /api/auth/me` - Informations utilisateur connecté
-
-### Utilisateurs (Admin uniquement)
-- `GET /api/users` - Liste tous les utilisateurs
-- `POST /api/users` - Créer un utilisateur
-- `GET /api/users/:id` - Récupérer un utilisateur
-- `PUT /api/users/:id` - Modifier un utilisateur
-- `DELETE /api/users/:id` - Supprimer un utilisateur
-
-### Feedbacks
-- `POST /api/feedbacks` - Créer un feedback
-- `GET /api/feedbacks` - Liste des feedbacks (admin voit tout, adherent voit les siens)
-- `PUT /api/feedbacks/:id` - Modifier le statut (admin uniquement)
-- `DELETE /api/feedbacks/:id` - Supprimer un feedback (admin uniquement)
-- `POST /api/feedbacks/:id/like` - Liker un feedback
-- `POST /api/feedbacks/:id/respond` - Répondre à un feedback (admin uniquement)
-
-### Données Publiques
-- `GET /api/news` - Liste des actualités
-- `GET /api/events` - Liste des événements
-- `GET /api/clubs` - Liste des clubs
-
-## 🗄️ Structure de la Base de Données
-
-### Collections MongoDB
-
-1. **users** - Utilisateurs
-   - username, email, password (haché), role, createdAt, createdBy
-
-2. **feedbacks** - Avis et réclamations
-   - name, email, message, type, status, userId, likes, likedBy, response, createdAt
-
-3. **news** - Actualités (prêt à l'emploi)
-   - title, content, image, author, createdAt, updatedAt
-
-4. **events** - Événements (prêt à l'emploi)
-   - title, description, date, location, image, organizer, createdAt
-
-5. **clubs** - Clubs étudiants (prêt à l'emploi)
-   - name, description, logo, president, members, createdAt
-
-Les collections sont créées automatiquement par Mongoose lors de la première insertion de documents.
-
-## 🚀 Déploiement en Production
-
-### Déploiement Automatique via GitHub Actions
-
-Le projet utilise un workflow GitHub Actions pour déployer automatiquement le frontend vers le serveur de production via FTPS.
-
-**Configuration requise :**
-- Configuration des secrets GitHub (FTP_HOST, FTP_USERNAME, FTP_PASSWORD, FTP_REMOTE_DIR, REACT_APP_API_URL)
-- Serveur avec support FTPS (port 21, TLS explicite)
-- Apache avec mod_rewrite activé
-
-**Déploiement :**
-Le déploiement se déclenche automatiquement à chaque push sur la branche `main`. Le workflow :
-1. Installe les dépendances et build le frontend React
-2. Crée un fichier `.htaccess` pour le support des routes SPA
-3. Déploie vers le serveur via FTPS
-
-📖 **Documentation complète** : Consultez [docs/deployment.md](docs/deployment.md) pour :
-- Configuration détaillée des secrets GitHub
-- Guide de dépannage
-- Monitoring des déploiements
-- Procédures de rollback
-
-### Build Manuel du Frontend
-
-```bash
-cd frontend
-npm run build
-```
-
-Le dossier `build/` contient les fichiers optimisés pour la production.
-
-### Variables d'Environnement
-
-#### Frontend
-- `REACT_APP_API_URL` : URL de l'API backend (configurée via GitHub secrets pour la production)
-
-#### Backend
-- `JWT_SECRET` : Clé secrète pour les tokens JWT (à changer en production)
-- `MONGODB_URI` : URI de connexion à MongoDB (à configurer pour la production)
-- `PORT` : Port du serveur backend (par défaut 5001)
-
-**Important** : Changez le mot de passe admin par défaut après le premier déploiement !
-
-## 📋 Améliorations Réalisées
-
-✅ Suppression de l'inscription publique - seul l'admin peut créer des comptes
-✅ Correction du middleware d'authentification JWT
-✅ Ajout du rôle 'user' pour plus de flexibilité
-✅ Correction de tous les bugs de communication frontend/backend
-✅ Mise en place de la sécurité (helmet, rate limiting, validation)
-✅ Interface d'administration pour la gestion des utilisateurs
-✅ Système de feedback avec réponses de l'administration
-✅ Design cohérent et responsive
-✅ Collections MongoDB créées automatiquement
-✅ Documentation complète
-✅ Déploiement automatique via GitHub Actions
-
-## 🛠️ Technologies Utilisées
-
-### Frontend
-- React 19
-- React Router DOM 7
-- Axios
-- Framer Motion (animations)
-- JWT Decode
-
-### Backend
-- Node.js
-- Express 5
-- MongoDB + Mongoose 8
-- JWT (jsonwebtoken)
-- bcryptjs
-- Helmet (sécurité)
-- Express Rate Limit
-- CORS
-
-## 📞 Support
-
-Pour toute question ou problème, contactez l'équipe de développement ADEI.
+# ADEI Website — ENSA Fès
+
+Full-stack web platform for **ADEI** (*Association des Étudiants Ingénieurs* — ENSA Fès):
+- **Frontend:** React 19 + React Router 7 + Framer Motion (`/frontend`)
+- **Backend:** Node.js 20 + Express + Sequelize REST API (`/server`)
+- **Databases:** MySQL 8.0 (active) + PostgreSQL 16 (staged for Phase 3 migration) + Adminer
 
 ---
 
-**Développé avec ❤️ pour l'ADEI - ENSAF**
+## Getting Started (Docker Compose)
+
+### 1. Prerequisites
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (with Docker Compose v2)
+- [Git](https://git-scm.com/)
+
+### 2. Configure Environment Variables
+Copy the root template into a local `.env` file (never commit `.env`):
+
+```bash
+cp .env.example .env
+```
+*(In PowerShell: `Copy-Item .env.example .env`)* — edit any passwords or `JWT_SECRET` you want for local dev.
+
+### 3. Start All Services
+```bash
+docker compose up --build
+```
+Or run in the background:
+```bash
+docker compose up -d --build
+```
+
+> At first startup, the backend automatically syncs Sequelize tables and creates a default admin account (`username: admin`, `email: admin@adei.ma`, `password: password`). **Change this password immediately after logging in.**
+
+### 4. Restore a MySQL Dump from `./backups`
+1. Place your `.sql` backup file inside the `./backups/` directory (for example `backups/adei_backup.sql`). It is automatically mounted inside the MySQL container at `/backups/`.
+2. Run the restore command using the credentials from your `.env`:
+
+**Bash / macOS / Linux:**
+```bash
+docker compose exec -T mysql mysql -u adei_user -p"your_mysql_password" adei_db < ./backups/adei_backup.sql
+```
+
+**PowerShell (Windows):**
+```powershell
+Get-Content .\backups\adei_backup.sql -Raw | docker compose exec -T mysql mysql -u adei_user -p"your_mysql_password" adei_db
+```
+
+*(Alternatively, run directly inside the container using the `/backups` mount: `docker compose exec mysql sh -c 'mysql -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" < /backups/adei_backup.sql'`)*
+
+### 5. Local Service URLs
+
+| Service | URL / Connection | Notes |
+| :--- | :--- | :--- |
+| **Frontend (React)** | http://localhost:3000 | CRA dev server with hot reload |
+| **Backend API** | http://localhost:5001 | Nodemon hot reload |
+| **API Healthcheck** | http://localhost:5001/health | Returns DB connectivity & uptime |
+| **Adminer (DB UI)** | http://localhost:8082 | Supports both MySQL & PostgreSQL |
+| **MySQL (Host port)** | `localhost:3307` | System: `MySQL` · Server inside Adminer: `mysql` |
+| **PostgreSQL (Host port)** | `localhost:5432` | System: `PostgreSQL` · Server inside Adminer: `postgres` |
