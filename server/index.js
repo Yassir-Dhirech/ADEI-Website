@@ -1,27 +1,18 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const multer = require('multer');
 const rateLimit = require('express-rate-limit');
-const path = require('path');
-const fs = require('fs');
-require('dotenv').config();
 
+const { UPLOAD_DIR, safeDeleteUpload, upload } = require('./config/upload');
+const { getCachedData, setCachedData, clearCache } = require('./utils/cache');
+const { pickFields } = require('./utils/sanitize');
+const { asyncWrapper, errorMiddleware, notFoundMiddleware } = require('./middleware/errorHandler');
 const { authMiddleware, adminMiddleware, JWT_SECRET } = require('./middleware/auth');
 
-const UPLOAD_DIR = path.resolve(__dirname, 'uploads');
 
-const safeDeleteUpload = (fileUrl) => {
-  if (!fileUrl || typeof fileUrl !== 'string' || fileUrl === '/images/default.jpg') {
-    return;
-  }
-  const relativePath = fileUrl.replace(/^\/+/, '');
-  const resolvedPath = path.resolve(__dirname, relativePath);
-  if (resolvedPath.startsWith(UPLOAD_DIR + path.sep) && fs.existsSync(resolvedPath)) {
-    fs.unlinkSync(resolvedPath);
-  }
-};
 
 // Import API interface with error handling
 let getApiInterface;
@@ -64,31 +55,8 @@ try {
   };
 }
 
-// Fonctions de gestion d'erreurs intégrées
-const handleApiError = (error, context = '') => {
-  console.error(`API Error in ${context}:`, {
-    message: error.message,
-    stack: error.stack,
-    name: error.name
-  });
 
-  // Message générique pour les utilisateurs
-  return {
-    success: false,
-    message: 'Service temporairement indisponible. Veuillez réessayer plus tard.',
-    code: 'SERVICE_ERROR'
-  };
-};
 
-const asyncWrapper = (fn) => {
-  return (req, res, next) => {
-    Promise.resolve(fn(req, res, next)).catch((error) => {
-      const context = `${req.method} ${req.path}`;
-      const errorResponse = handleApiError(error, context);
-      res.status(500).json(errorResponse);
-    });
-  };
-};
 
 // Import Sequelize models with associations
 const sequelize = require('./config/database');
@@ -97,28 +65,7 @@ const models = require('./models');
 const { User, News, Event, Club, Feedback, ADEIMember, Filiere, Partner } = models;
 
 
-// Field whitelists to prevent mass assignment
-const ALLOWED_FIELDS = {
-  news: ['title', 'content', 'date', 'clubId', 'organizer', 'image', 'document', 'link', 'category', 'order_display'],
-  events: ['title', 'description', 'date', 'time', 'location', 'category', 'clubId', 'organizer', 'image', 'document', 'link'],
-  clubs: ['club', 'president', 'annees_etude', 'tel', 'email', 'website', 'image', 'description', 'activities', 'achievements', 'members', 'facebook', 'instagram', 'linkedin'],
-  feedbacks: ['name', 'email', 'type', 'message'],
-  'adei-members': ['name', 'role', 'email', 'photo'],
-  partners: ['name', 'description', 'website', 'logo', 'facebook', 'instagram', 'whatsapp', 'isActive', 'order_display'],
-  filieres: ['name', 'abbreviation', 'type', 'documentation', 'drive', 'description', 'isActive', 'order_display', 'responsable_pedagogique', 'responsable_contact', 'delegue_cp1_a', 'tel_delegue_cp1_a', 'delegue_cp1_b', 'tel_delegue_cp1_b', 'delegue_cp1_c', 'tel_delegue_cp1_c', 'delegue_cp2_a', 'tel_delegue_cp2_a', 'delegue_cp2_b', 'tel_delegue_cp2_b', 'delegue_cp2_c', 'tel_delegue_cp2_c', 'delegue_annee1', 'tel_delegue_annee1', 'delegue_annee2', 'tel_delegue_annee2', 'delegue_annee3', 'tel_delegue_annee3'],
-  users: ['username', 'email', 'password', 'role', 'is_president', 'is_representant', 'is_membre_adei', 'is_bureau_adei']
-};
 
-const pickFields = (body, type) => {
-  const allowed = ALLOWED_FIELDS[type] || [];
-  const result = {};
-  for (const key of allowed) {
-    if (body[key] !== undefined) {
-      result[key] = body[key];
-    }
-  }
-  return result;
-};
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -168,50 +115,8 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(UPLOAD_DIR));
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, 'uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // Increased to 10MB
-  fileFilter: (req, file, cb) => {
-    // Allow images and documents
-    const allowedImageTypes = /jpeg|jpg|png|gif|webp/;
-    const allowedDocTypes = /pdf|doc|docx|txt/;
-    const extname = path.extname(file.originalname).toLowerCase();
-    const mimetype = file.mimetype;
-
-    // Check if it's an image
-    const isImage = allowedImageTypes.test(extname) && /image/.test(mimetype);
-
-    // Check if it's a document
-    const isDocument = allowedDocTypes.test(extname) &&
-      (mimetype.includes('pdf') ||
-        mimetype.includes('document') ||
-        mimetype.includes('text') ||
-        mimetype.includes('msword') ||
-        mimetype.includes('wordprocessingml'));
-
-    if (isImage || isDocument) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Seules les images (jpeg, jpg, png, gif, webp) et les documents (pdf, doc, docx, txt) sont autorisés'));
-    }
-  }
-});
 
 // Connexion à MySQL et synchronisation des modèles
 async function connectWithRetry() {
@@ -436,28 +341,7 @@ app.post('/api/logout', (req, res) => {
 });
 
 // Cache simple pour éviter les requêtes répétitives
-const cache = new Map();
-const CACHE_DURATION = 30000; // 30 secondes
 
-const getCachedData = (key) => {
-  const cached = cache.get(key);
-  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-    return cached.data;
-  }
-  return null;
-};
-
-const setCachedData = (key, data) => {
-  cache.set(key, { data, timestamp: Date.now() });
-};
-
-const clearCache = (key) => {
-  if (key) {
-    cache.delete(key);
-  } else {
-    cache.clear();
-  }
-};
 
 // Routes News
 // Public endpoint to get all news (for display on news page)
@@ -1626,35 +1510,9 @@ app.patch('/api/events/:id/reorder', authMiddleware, adminMiddleware, async (req
   }
 });
 
-// Middleware global de gestion d'erreurs (doit être à la fin)
-app.use((err, req, res, next) => {
-  if (err instanceof multer.MulterError || (err.message && err.message.includes('Seules les images'))) {
-    return res.status(400).json({
-      success: false,
-      message: err.message || 'Erreur lors du téléchargement du fichier',
-      code: 'UPLOAD_ERROR'
-    });
-  }
-  if (err.type === 'entity.parse.failed' || err.status === 400) {
-    return res.status(400).json({
-      success: false,
-      message: 'Requête JSON invalide',
-      code: 'BAD_REQUEST'
-    });
-  }
-  const context = `${req.method} ${req.path}`;
-  const errorResponse = handleApiError(err, context);
-  res.status(500).json(errorResponse);
-});
-
-// Gestion des routes non trouvées
-app.use('*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Endpoint non trouvé',
-    code: 'NOT_FOUND'
-  });
-});
+// Middleware global de gestion d'erreurs et 404 (doivent être à la fin)
+app.use(errorMiddleware);
+app.use('*', notFoundMiddleware);
 
 app.listen(PORT, () => {
   console.log(`Serveur backend démarré sur le port ${PORT}`);
