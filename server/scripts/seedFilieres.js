@@ -1,5 +1,5 @@
-const sequelize = require('./config/database');
-const Filiere = require('./models/Filiere');
+const sequelize = require('../config/database');
+const Filiere = require('../models/Filiere');
 
 const filieresSeed = [
   {

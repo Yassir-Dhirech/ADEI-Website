@@ -11,57 +11,10 @@ const eventsRoutes = require('./routes/events.routes');
 
 const express = require('express');
 const cors = require('cors');
-const bcrypt = require('bcryptjs');
 
 
 const { UPLOAD_DIR } = require('./config/upload');
 const { errorMiddleware, notFoundMiddleware } = require('./middleware/errorHandler');
-
-
-
-// Import API interface with error handling
-let getApiInterface;
-try {
-  const apiInterface = require('./api-interface');
-  getApiInterface = apiInterface.getApiInterface;
-} catch (error) {
-  console.error('Warning: Could not load api-interface module:', error.message);
-  // Create a fallback function
-  getApiInterface = (PORT) => {
-    return `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API ADEI ENSA Fès</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #000; color: #fff; }
-        h1 { color: #dc2626; }
-        .status { background: #dc2626; color: white; padding: 15px; margin: 20px 0; }
-    </style>
-</head>
-<body>
-    <h1>API ADEI ENSA Fès</h1>
-    <div class="status">API Opérationnelle - Port ${PORT}</div>
-    <p>Interface de programmation pour l'Association des Étudiants Ingénieurs</p>
-    <p>Endpoints disponibles:</p>
-    <ul style="text-align: left; max-width: 400px; margin: 0 auto;">
-        <li>GET /api/news - Actualités</li>
-        <li>GET /api/events - Événements</li>
-        <li>GET /api/clubs - Clubs</li>
-        <li>GET /api/filieres - Filières</li>
-        <li>GET /api/feedbacks/public - Feedbacks</li>
-        <li>GET /health - Status</li>
-    </ul>
-</body>
-</html>
-    `;
-  };
-}
-
-
-
 
 // Import Sequelize models
 const sequelize = require('./config/database');
@@ -70,30 +23,39 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 
 
+// Trust first proxy hop if enabled (for accurate client IPs behind Nginx/Cloudflare)
+if (process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1') {
+  app.set('trust proxy', 1);
+}
 
 
+const isDevelopment = process.env.NODE_ENV !== 'production';
+const configuredOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim()).filter(Boolean)
+  : [];
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Permettre les requêtes sans origin (mobile apps, etc.)
+    // 1. Allow non-browser requests with no origin (mobile apps, curl, server-to-server)
     if (!origin) return callback(null, true);
 
-    // Utiliser les origins depuis les variables d'environnement ou valeurs par défaut
-    const corsOrigins = process.env.CORS_ORIGINS
-      ? process.env.CORS_ORIGINS.split(',')
-      : ["https://adei-ensaf.ma", "https://www.adei-ensaf.ma", "http://localhost:3000", "http://localhost:3001"];
-
-    if (corsOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      console.log('CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
+    // 2. Allow localhost and 127.0.0.1 ONLY in development
+    if (isDevelopment && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+      return callback(null, true);
     }
+
+    // 3. Allow explicitly configured origins from env
+    if (configuredOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    console.warn(`[CORS] Blocked request from unauthorized origin: ${origin}`);
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  optionsSuccessStatus: 200 // Pour supporter les anciens navigateurs
+  optionsSuccessStatus: 200
 }));
 
 // Middleware de debug CORS
@@ -118,21 +80,6 @@ async function connectWithRetry() {
       // Synchroniser les modèles avec la base de données
       await sequelize.sync({ force: false });
       console.log('Modèles synchronisés');
-
-      // Créer l'utilisateur admin par défaut seulement s'il n'y en a aucun
-      const adminCount = await User.count({ where: { role: 'admin' } });
-      if (adminCount === 0) {
-        const hashedPassword = await bcrypt.hash('password', 10);
-        await User.create({
-          username: 'admin',
-          email: 'adei_ensa@gmail.com',
-          password: hashedPassword,
-          role: 'admin'
-        });
-        console.log('Utilisateur admin par défaut créé');
-      } else {
-        console.log(`${adminCount} administrateur(s) trouvé(s) dans la base de données`);
-      }
       break;
     } catch (err) {
       retries++;
@@ -208,79 +155,21 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-// Route pour la racine - Interface web de l'API
+// Route racine - Statut API
 app.get('/', (req, res) => {
-  try {
-    const html = getApiInterface(PORT);
-    res.send(html);
-  } catch (error) {
-    console.error('Error serving API interface:', error);
-    // Fallback simple HTML
-    res.send(`
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API ADEI ENSA Fès</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #000; color: #fff; }
-        h1 { color: #dc2626; margin-bottom: 20px; }
-        .status { background: #dc2626; color: white; padding: 15px; margin: 20px 0; border-radius: 5px; }
-        .endpoints { text-align: left; max-width: 600px; margin: 20px auto; }
-        .endpoint { background: #1a1a1a; padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid #333; }
-        a { color: #dc2626; text-decoration: none; }
-        a:hover { text-decoration: underline; }
-    </style>
-</head>
-<body>
-    <h1>API ADEI ENSA Fès</h1>
-    <div class="status">API Opérationnelle - Port ${PORT} - ${new Date().toLocaleString('fr-FR')}</div>
-    <p>Interface de programmation pour l'Association des Étudiants Ingénieurs</p>
-    
-    <div class="endpoints">
-        <h3>Endpoints Publics:</h3>
-        <div class="endpoint">
-            <strong>GET /api/news</strong> - Récupère toutes les actualités
-            <br><a href="/api/news" target="_blank">Tester</a>
-        </div>
-        <div class="endpoint">
-            <strong>GET /api/events</strong> - Récupère tous les événements
-            <br><a href="/api/events" target="_blank">Tester</a>
-        </div>
-        <div class="endpoint">
-            <strong>GET /api/clubs</strong> - Liste des clubs étudiants
-            <br><a href="/api/clubs" target="_blank">Tester</a>
-        </div>
-        <div class="endpoint">
-            <strong>GET /api/filieres</strong> - Informations sur les filières
-            <br><a href="/api/filieres" target="_blank">Tester</a>
-        </div>
-        <div class="endpoint">
-            <strong>GET /api/feedbacks/public</strong> - Feedbacks publics
-            <br><a href="/api/feedbacks/public" target="_blank">Tester</a>
-        </div>
-        <div class="endpoint">
-            <strong>GET /api/adei-members</strong> - Membres du bureau ADEI
-            <br><a href="/api/adei-members" target="_blank">Tester</a>
-        </div>
-        <div class="endpoint">
-            <strong>GET /health</strong> - Vérification de l'état de l'API
-            <br><a href="/health" target="_blank">Tester</a>
-        </div>
-        <div class="endpoint">
-            <strong>GET /api/test</strong> - Test général des routes
-            <br><a href="/api/test" target="_blank">Tester</a>
-        </div>
-    </div>
-    
-    <p style="margin-top: 40px; color: #666;">
-        © 2026 ADEI ENSA Fès - API développée pour la communauté étudiante
-    </p>
-</body>
-</html>
-    `);
-  }
+  res.status(200).json({
+    status: 'ok',
+    message: 'API ADEI ENSA Fès is operational',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      news: '/api/news',
+      events: '/api/events',
+      clubs: '/api/clubs',
+      filieres: '/api/filieres',
+      feedbacks: '/api/feedbacks/public'
+    }
+  });
 });
 
 // Routes d'authentification

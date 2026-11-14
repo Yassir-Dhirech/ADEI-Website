@@ -29,10 +29,14 @@ Or run in the background:
 ```bash
 docker compose up -d --build
 ```
+### 4. Create an Admin Account
+Admin accounts are never created automatically. To create your first administrator, ensure `ADMIN_USERNAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` (minimum 12 characters) are set in your `.env`, then run:
 
-> At first startup, the backend automatically syncs Sequelize tables and creates a default admin account (`username: admin`, `email: adei_ensa@gmail.com`, `password: password`). **Change this password immediately after logging in.**
+```bash
+docker compose exec api node scripts/createAdmin.js
+```
 
-### 4. Restore a MySQL Dump from `./backups`
+### 5. Restore a MySQL Dump from `./backups`
 1. Place your `.sql` backup file inside the `./backups/` directory (for example `backups/adei_backup.sql`). It is automatically mounted inside the MySQL container at `/backups/`.
 2. Run the restore command using the credentials from your `.env`:
 
@@ -48,7 +52,7 @@ Get-Content .\backups\adei_backup.sql -Raw | docker compose exec -T mysql mysql 
 
 *(Alternatively, run directly inside the container using the `/backups` mount: `docker compose exec mysql sh -c 'mysql -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" < /backups/adei_backup.sql'`)*
 
-### 5. Local Service URLs
+### 6. Local Service URLs
 
 | Service | URL / Connection | Notes |
 | :--- | :--- | :--- |

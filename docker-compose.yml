@@ -78,6 +78,10 @@ services:
       DB_PASSWORD: ${MYSQL_PASSWORD:-adei_password}
       JWT_SECRET: ${JWT_SECRET:-dev_only_change_me_jwt_secret_key}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
     volumes:
       - ./server:/app
       - /app/node_modules
