@@ -1,14 +1,14 @@
 const { Sequelize } = require('sequelize');
-require('dotenv').config();
+const { DB } = require('./env');
 
 const sequelize = new Sequelize({
   dialect: 'mysql',
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 3307,
-  database: process.env.DB_NAME || 'adei_db',
-  username: process.env.DB_USER || 'adei_user',
-  password: process.env.DB_PASSWORD || 'adei_password',
-  logging: false, // Désactiver complètement le logging SQL
+  host: DB.host,
+  port: DB.port,
+  database: DB.name,
+  username: DB.user,
+  password: DB.password,
+  logging: false,
   pool: {
     max: 5,
     min: 0,

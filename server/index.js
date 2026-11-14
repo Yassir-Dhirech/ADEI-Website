@@ -1,4 +1,4 @@
-require('dotenv').config();
+const env = require('./config/env');
 const filieresRoutes = require('./routes/filieres.routes');
 const adeiMembersRoutes = require('./routes/adeiMembers.routes');
 const partnersRoutes = require('./routes/partners.routes');
@@ -20,32 +20,23 @@ const { errorMiddleware, notFoundMiddleware } = require('./middleware/errorHandl
 const sequelize = require('./config/database');
 const { User, Feedback } = require('./models');
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = env.PORT || 5001;
 
 
 // Trust first proxy hop if enabled (for accurate client IPs behind Nginx/Cloudflare)
-if (process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1') {
+if (env.TRUST_PROXY) {
   app.set('trust proxy', 1);
 }
 
-
-const isDevelopment = process.env.NODE_ENV !== 'production';
-const configuredOrigins = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim()).filter(Boolean)
-  : [];
-
 app.use(cors({
   origin: function (origin, callback) {
-    // 1. Allow non-browser requests with no origin (mobile apps, curl, server-to-server)
     if (!origin) return callback(null, true);
 
-    // 2. Allow localhost and 127.0.0.1 ONLY in development
-    if (isDevelopment && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+    if (env.isDevelopment && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
       return callback(null, true);
     }
 
-    // 3. Allow explicitly configured origins from env
-    if (configuredOrigins.includes(origin)) {
+    if (env.CORS_ORIGINS.includes(origin)) {
       return callback(null, true);
     }
 
@@ -109,7 +100,7 @@ app.get('/health', (req, res) => {
 });
 
 // Debug/test endpoints — ONLY available in development
-if (process.env.NODE_ENV !== 'production') {
+if (env.isDevelopment) {
 
   // Test endpoint pour vérifier les routes API
   app.get('/api/test', (req, res) => {

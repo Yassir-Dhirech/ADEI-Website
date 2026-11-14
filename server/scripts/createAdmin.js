@@ -31,10 +31,18 @@ async function createAdmin() {
       }
     });
 
-    if (existingAdmin) {
-      console.log(`L'administrateur avec l'identifiant "${existingAdmin.username}" (${existingAdmin.email}) existe déjà (ID: ${existingAdmin.id}). Aucune action nécessaire.`);
-      process.exit(0);
-    }
+
+// APRÈS :
+if (existingAdmin) {
+  const hashedPassword = await bcrypt.hash(password, 10);
+  await existingAdmin.update({
+    email,
+    password: hashedPassword,
+    role: 'admin'
+  });
+  console.log(`✅ Administrateur "${existingAdmin.username}" (${email}) synchronisé avec succès avec le mot de passe du .env (ID: ${existingAdmin.id})!`);
+  process.exit(0);
+}
 
     // 4. Hash password and create admin
     const hashedPassword = await bcrypt.hash(password, 10);

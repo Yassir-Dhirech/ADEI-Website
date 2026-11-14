@@ -61,8 +61,8 @@ router.post('/change-password', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Mot de passe actuel et nouveau mot de passe requis' });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ success: false, message: 'Le nouveau mot de passe doit contenir au moins 6 caractères' });
+    if (newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: 'Le nouveau mot de passe doit contenir au moins 8 caractères' });
     }
 
     const userId = req.user.id || req.user.userId;
@@ -119,6 +119,9 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
     if (!username || !email || !password) {
       return res.status(400).json({ message: 'Nom d\'utilisateur, email et mot de passe requis' });
     }
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Le mot de passe doit contenir au moins 8 caractères' });
+    }
 
     const existingUser = await User.findOne({
       where: {
@@ -164,13 +167,19 @@ router.put('/:id', authMiddleware, adminMiddleware, async (req, res) => {
     if (typeof is_membre_adei === 'boolean') updateData.is_membre_adei = is_membre_adei;
     if (typeof is_bureau_adei === 'boolean') updateData.is_bureau_adei = is_bureau_adei;
 
+ 
+
     if (password) {
+      if (password.length < 8) {
+        return res.status(400).json({ message: 'Le mot de passe doit contenir au moins 8 caractères' });
+      }
       updateData.password = await bcrypt.hash(password, 10);
       updateData.lastPasswordChange = new Date();
     }
 
     const [updated] = await User.update(updateData, { where: { id: req.params.id } });
 
+    
     if (updated) {
       const user = await User.findByPk(req.params.id, { attributes: { exclude: ['password'] } });
       res.json(user);
