@@ -17,10 +17,18 @@ if (!JWT_SECRET) {
 }
 
 // 3. Database Variables
-const DB_HOST = process.env.DB_HOST || (isProduction ? null : 'mysql');
-const DB_PORT = parseInt(process.env.DB_PORT, 10) || 3306;
-const DB_NAME = process.env.DB_NAME || 'adei_db';
-const DB_USER = process.env.DB_USER || 'adei_user';
+// 3. Database Variables
+const DB_DIALECT = (process.env.DB_DIALECT || 'mysql').toLowerCase();
+if (!['mysql', 'postgres'].includes(DB_DIALECT)) {
+  errors.push(`DB_DIALECT "${DB_DIALECT}" n'est pas supporté. Utilisez "mysql" ou "postgres".`);
+}
+
+const defaultPort = DB_DIALECT === 'postgres' ? 5432 : 3306;
+const defaultHost = isProduction ? null : DB_DIALECT;
+const DB_HOST = process.env.DB_HOST || defaultHost;
+const DB_PORT = parseInt(process.env.DB_PORT, 10) || defaultPort;
+const DB_NAME = process.env.DB_NAME || (DB_DIALECT === 'postgres' ? 'adei_pg' : 'adei_db');
+const DB_USER = process.env.DB_USER || (DB_DIALECT === 'postgres' ? 'adei_pg_user' : 'adei_user');
 const DB_PASSWORD = process.env.DB_PASSWORD || '';
 
 if (!DB_HOST) errors.push('DB_HOST est obligatoire.');
@@ -64,6 +72,7 @@ module.exports = Object.freeze({
   CORS_ORIGINS,
   TRUST_PROXY,
   DB: Object.freeze({
+    dialect: DB_DIALECT,
     host: DB_HOST,
     port: DB_PORT,
     name: DB_NAME,

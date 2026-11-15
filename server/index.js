@@ -66,7 +66,7 @@ async function connectWithRetry() {
   while (retries < maxRetries) {
     try {
       await sequelize.authenticate();
-      console.log('MySQL connecté avec succès');
+      console.log(`Base de données (${sequelize.getDialect()}) connectée avec succès`);
 
       // Synchroniser les modèles avec la base de données
       await sequelize.sync({ force: false });
@@ -74,8 +74,8 @@ async function connectWithRetry() {
       break;
     } catch (err) {
       retries++;
-      console.log(`Tentative de connexion MySQL ${retries}/${maxRetries}...`);
-      console.error('Erreur MySQL:', err.message);
+      console.log(`Tentative de connexion (${sequelize.getDialect()}) ${retries}/${maxRetries}...`);
+      console.error(`Erreur (${sequelize.getDialect()}):`, err.message);
       if (retries >= maxRetries) {
         console.error('Impossible de se connecter à MySQL après', maxRetries, 'tentatives');
         // Ne pas faire process.exit(1) sur Vercel

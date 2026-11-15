@@ -2,7 +2,7 @@ const { Sequelize } = require('sequelize');
 const { DB } = require('./env');
 
 const sequelize = new Sequelize({
-  dialect: 'mysql',
+  dialect: DB.dialect,
   host: DB.host,
   port: DB.port,
   database: DB.name,
