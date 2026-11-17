@@ -3,7 +3,7 @@
 Full-stack web platform for **ADEI** (*Association des Étudiants Ingénieurs* — ENSA Fès):
 - **Frontend:** React 19 + React Router 7 + Framer Motion (`/frontend`)
 - **Backend:** Node.js 20 + Express + Sequelize REST API (`/server`)
-- **Databases:** MySQL 8.0 (active) + PostgreSQL 16 (staged for Phase 3 migration) + Adminer
+- **Databases:** PostgreSQL 16 (active) + MySQL 8.0 (standby) + Adminer
 
 ---
 
@@ -52,7 +52,20 @@ Get-Content .\backups\adei_backup.sql -Raw | docker compose exec -T mysql mysql 
 
 *(Alternatively, run directly inside the container using the `/backups` mount: `docker compose exec mysql sh -c 'mysql -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" < /backups/adei_backup.sql'`)*
 
-### 6. Local Service URLs
+### 6. Running Automated Tests (Jest + Supertest)
+Tests run against a dedicated isolated PostgreSQL database (`adei_test`) protected by a safety guard so development data (`adei_pg`) is never touched.
+
+1. Create the test database once (first-time setup):
+```bash
+docker compose exec postgres psql -U adei_pg_user -d adei_pg -c "CREATE DATABASE adei_test;"
+```
+
+2. Run the automated test suite:
+```bash
+docker compose exec api npm test
+```
+
+### 7. Local Service URLs
 
 | Service | URL / Connection | Notes |
 | :--- | :--- | :--- |
