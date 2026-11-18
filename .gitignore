@@ -10,6 +10,7 @@ pnpm-debug.log*
 frontend/build/
 build/
 dist/
+**/dist/
 backend-deploy/
 
 # --- Environment variables ---
