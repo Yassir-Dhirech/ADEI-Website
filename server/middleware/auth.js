@@ -3,16 +3,18 @@ const { JWT_SECRET } = require('../config/env');
 
 const authMiddleware = (req, res, next) => {
   try {
+    const cookieToken = req.cookies && req.cookies.adei_token;
     const authHeader = req.headers.authorization;
+    const headerToken = authHeader
+      ? (authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader)
+      : null;
 
-    if (!authHeader) {
+    // Priorité au cookie httpOnly, fallback sur le header Authorization (tests/CLI)
+    const token = cookieToken || headerToken;
+
+    if (!token) {
       return res.status(401).json({ success: false, message: 'Accès non autorisé' });
     }
-
-    // Extract token from "Bearer <token>" or use directly if no Bearer prefix
-    const token = authHeader.startsWith('Bearer ') 
-      ? authHeader.substring(7) 
-      : authHeader;
 
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;

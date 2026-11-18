@@ -20,6 +20,7 @@ const feedbackLimiter = rateLimit({
 router.get('/public', asyncWrapper(async (req, res) => {
   try {
     const feedbacks = await Feedback.findAll({
+      where: { isPublished: true },
       order: [['createdAt', 'DESC']],
       attributes: ['id', 'name', 'type', 'message', 'createdAt', 'userId'],
       include: [{
@@ -38,6 +39,7 @@ router.get('/public', asyncWrapper(async (req, res) => {
   } catch (associationError) {
     try {
       const simpleFeedbacks = await Feedback.findAll({
+        where: { isPublished: true },
         order: [['createdAt', 'DESC']],
         attributes: ['id', 'name', 'type', 'message', 'createdAt']
       });
@@ -78,10 +80,15 @@ router.post('/', feedbackLimiter, async (req, res) => {
   try {
     const feedbackData = pickFields(req.body, 'feedbacks');
 
+    const cookieToken = req.cookies && req.cookies.adei_token;
     const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
+    const headerToken = authHeader && authHeader.startsWith('Bearer ')
+      ? authHeader.substring(7)
+      : null;
+    const token = cookieToken || headerToken;
+
+    if (token) {
       try {
-        const token = authHeader.substring(7);
         const decoded = jwt.verify(token, JWT_SECRET);
         feedbackData.userId = decoded.id || decoded.userId;
       } catch (tokenError) {
@@ -109,6 +116,25 @@ router.put('/:id/read', authMiddleware, adminMiddleware, async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ message: 'Erreur lors de la mise à jour du feedback' });
+  }
+});
+
+// PUT /api/feedbacks/:id/publish (modération admin)
+router.put('/:id/publish', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const feedback = await Feedback.findByPk(req.params.id);
+    if (!feedback) {
+      return res.status(404).json({ message: 'Feedback non trouvé' });
+    }
+
+    const nextStatus = typeof req.body?.isPublished === 'boolean'
+      ? req.body.isPublished
+      : !feedback.isPublished;
+
+    await feedback.update({ isPublished: nextStatus });
+    res.json({ success: true, data: feedback });
+  } catch (error) {
+    res.status(500).json({ message: 'Erreur lors de la modération du feedback' });
   }
 });
 

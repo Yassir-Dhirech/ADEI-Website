@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const { Club } = require('../models');
-const { upload, safeDeleteUpload } = require('../config/upload');
+const { upload, safeDeleteUpload ,validateUploadedFiles} = require('../config/upload');
 const { pickFields } = require('../utils/sanitize');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const { asyncWrapper } = require('../middleware/errorHandler');
@@ -81,7 +81,7 @@ router.get('/', asyncWrapper(async (req, res) => {
 }));
 
 // POST /api/clubs
-router.post('/', authMiddleware, adminMiddleware, upload.single('image'), async (req, res) => {
+router.post('/', authMiddleware, adminMiddleware, upload.single('image'),validateUploadedFiles, async (req, res) => {
   try {
     const clubData = pickFields(req.body, 'clubs');
     if (req.file) {
@@ -116,7 +116,7 @@ router.post('/', authMiddleware, adminMiddleware, upload.single('image'), async 
 });
 
 // PUT /api/clubs/:id
-router.put('/:id', authMiddleware, adminMiddleware, upload.single('image'), async (req, res) => {
+router.put('/:id', authMiddleware, adminMiddleware, upload.single('image'), validateUploadedFiles, async (req, res) => {
   try {
     console.log('=== DÉBUT MODIFICATION CLUB ===');
     console.log('ID du club:', req.params.id);

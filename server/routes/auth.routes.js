@@ -6,6 +6,15 @@ const router = express.Router();
 
 const { User } = require('../models');
 const { JWT_SECRET } = require('../middleware/auth');
+const env = require('../config/env');
+
+const AUTH_COOKIE_NAME = 'adei_token';
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: env.isProduction,
+  sameSite: env.isProduction ? 'none' : 'lax',
+  maxAge: 24 * 60 * 60 * 1000 // 24h
+};
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -40,6 +49,8 @@ router.post('/login', loginLimiter, async (req, res) => {
       { expiresIn: '24h' }
     );
 
+    res.cookie(AUTH_COOKIE_NAME, token, COOKIE_OPTIONS);
+
     res.json({
       success: true,
       token,
@@ -57,6 +68,11 @@ router.post('/login', loginLimiter, async (req, res) => {
 
 // POST /api/logout
 router.post('/logout', (req, res) => {
+  res.clearCookie(AUTH_COOKIE_NAME, {
+    httpOnly: true,
+    secure: env.isProduction,
+    sameSite: env.isProduction ? 'none' : 'lax'
+  });
   res.json({ success: true });
 });
 

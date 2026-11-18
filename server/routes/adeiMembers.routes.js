@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const { ADEIMember } = require('../models');
-const { upload, safeDeleteUpload } = require('../config/upload');
+const { upload, safeDeleteUpload ,validateUploadedFiles} = require('../config/upload');
 const { pickFields } = require('../utils/sanitize');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 
@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/adei-members
-router.post('/', authMiddleware, adminMiddleware, upload.single('photo'), async (req, res) => {
+router.post('/', authMiddleware, adminMiddleware, upload.single('photo'),validateUploadedFiles, async (req, res) => {
   try {
     const memberData = pickFields(req.body, 'adei-members');
     if (req.file) {
@@ -31,7 +31,7 @@ router.post('/', authMiddleware, adminMiddleware, upload.single('photo'), async 
 });
 
 // PUT /api/adei-members/:id
-router.put('/:id', authMiddleware, adminMiddleware, upload.single('photo'), async (req, res) => {
+router.put('/:id', authMiddleware, adminMiddleware, upload.single('photo'),validateUploadedFiles, async (req, res) => {
   try {
     const memberData = pickFields(req.body, 'adei-members');
     if (req.file) {

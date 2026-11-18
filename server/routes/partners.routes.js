@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const { Partner } = require('../models');
-const { upload, safeDeleteUpload } = require('../config/upload');
+const { upload, safeDeleteUpload ,validateUploadedFiles } = require('../config/upload');
 const { pickFields } = require('../utils/sanitize');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 
@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /api/partners
-router.post('/', authMiddleware, adminMiddleware, upload.single('logo'), async (req, res) => {
+router.post('/', authMiddleware, adminMiddleware, upload.single('logo'),validateUploadedFiles, async (req, res) => {
   try {
     const partnerData = pickFields(req.body, 'partners');
     if (req.file) {
@@ -44,7 +44,7 @@ router.post('/', authMiddleware, adminMiddleware, upload.single('logo'), async (
 });
 
 // PUT /api/partners/:id
-router.put('/:id', authMiddleware, adminMiddleware, upload.single('logo'), async (req, res) => {
+router.put('/:id', authMiddleware, adminMiddleware, upload.single('logo'),validateUploadedFiles, async (req, res) => {
   try {
     const partnerData = pickFields(req.body, 'partners');
     if (req.file) {

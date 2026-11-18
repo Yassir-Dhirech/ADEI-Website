@@ -4,6 +4,7 @@ const sequelize = require('../config/database');
 const { User } = require('../models');
 
 async function createAdmin() {
+  const shouldReset = process.argv.includes('--reset');
   const email = process.env.ADMIN_EMAIL ? process.env.ADMIN_EMAIL.trim() : null;
   const username = process.env.ADMIN_USERNAME ? process.env.ADMIN_USERNAME.trim() : null;
   const password = process.env.ADMIN_PASSWORD;
@@ -33,16 +34,23 @@ async function createAdmin() {
 
 
 // APRÈS :
-if (existingAdmin) {
-  const hashedPassword = await bcrypt.hash(password, 10);
-  await existingAdmin.update({
-    email,
-    password: hashedPassword,
-    role: 'admin'
-  });
-  console.log(`✅ Administrateur "${existingAdmin.username}" (${email}) synchronisé avec succès avec le mot de passe du .env (ID: ${existingAdmin.id})!`);
-  process.exit(0);
-}
+ if (existingAdmin) {
+   if (!shouldReset) {
+     console.log(`ℹ️  L'administrateur "${existingAdmin.username}" (${existingAdmin.email}) existe déjà (ID: ${existingAdmin.id}).`);
+     console.log('   Aucune modification effectuée. Ajoutez --reset pour forcer la réinitialisation du mot de passe.');
+     process.exit(0);
+   }
+
+   const hashedPassword = await bcrypt.hash(password, 10);
+   await existingAdmin.update({
+     email,
+     password: hashedPassword,
+     role: 'admin',
+     lastPasswordChange: new Date()
+   });
+   console.log(`🔄 Administrateur "${existingAdmin.username}" (${email}) réinitialisé avec succès via --reset (ID: ${existingAdmin.id})!`);
+   process.exit(0);
+ }
 
     // 4. Hash password and create admin
     const hashedPassword = await bcrypt.hash(password, 10);

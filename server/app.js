@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 
 const env = require('./config/env');
 const { UPLOAD_DIR } = require('./config/upload');
@@ -47,6 +48,7 @@ app.use(cors({
 
 // Middlewares généraux
 app.use(express.json());
+app.use(cookieParser());
 app.use('/uploads', express.static(UPLOAD_DIR));
 
 // Health check endpoint

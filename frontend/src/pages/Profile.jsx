@@ -72,9 +72,7 @@ const Profile = () => {
       try {
         const response = await fetch(getApiUrl('users/password-security'), {
           method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          credentials: 'include'
         });
 
         if (response.ok) {
@@ -152,9 +150,9 @@ const Profile = () => {
     try {
       const response = await fetch(getApiUrl('users/change-password'), {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           currentPassword: passwordData.currentPassword,

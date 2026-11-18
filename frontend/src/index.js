@@ -1,6 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import axios from 'axios';
 import App from './App';
+
+// Envoyer automatiquement le cookie httpOnly sur toutes les requêtes Axios
+axios.defaults.withCredentials = true;
 
 // Import the global theme.  This file defines colour variables and
 // animations for the entire application.

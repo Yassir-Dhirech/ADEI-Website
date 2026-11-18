@@ -23,9 +23,14 @@ const Feedback = sequelize.define('Feedback', {
     type: DataTypes.TEXT,
     allowNull: false
   },
-  read: {
+    read: {
     type: DataTypes.BOOLEAN,
     defaultValue: false
+  },
+  isPublished: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    allowNull: false
   },
   userId: {
     type: DataTypes.INTEGER,

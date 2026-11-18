@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const { News, Club } = require('../models');
-const { upload } = require('../config/upload');
+const { upload, validateUploadedFiles } = require('../config/upload');
 const { getCachedData, setCachedData, clearCache } = require('../utils/cache');
 const { pickFields } = require('../utils/sanitize');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
@@ -45,7 +45,7 @@ router.get('/', asyncWrapper(async (req, res) => {
 }));
 
 // POST /api/news (admin)
-router.post('/', authMiddleware, adminMiddleware, newsUpload, async (req, res) => {
+router.post('/', authMiddleware, adminMiddleware, newsUpload,validateUploadedFiles, async (req, res) => {
   try {
     const newsData = pickFields(req.body, 'news');
 
@@ -90,7 +90,7 @@ router.post('/', authMiddleware, adminMiddleware, newsUpload, async (req, res) =
 });
 
 // PUT /api/news/:id (admin)
-router.put('/:id', authMiddleware, adminMiddleware, newsUpload, async (req, res) => {
+router.put('/:id', authMiddleware, adminMiddleware, newsUpload,validateUploadedFiles,async (req, res) => {
   try {
     const newsData = pickFields(req.body, 'news');
 
