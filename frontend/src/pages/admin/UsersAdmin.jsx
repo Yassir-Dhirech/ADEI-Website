@@ -52,10 +52,11 @@ const UsersAdmin = () => {
     setLoading(true);
     try {
       const headers = { Authorization: token };
-      const usersResponse = await fetch(API_ENDPOINTS.USERS, { headers });
-      const users = await usersResponse.json();
+      const usersResponse = await fetch(API_ENDPOINTS.USERS, { credentials: 'include', headers });
+      const payload = await usersResponse.json();
+      const users = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : []);
       
-      setUsersData(Array.isArray(users) ? users : []);
+      setUsersData(users);
     } catch (error) {
       logger.error('Erreur lors du chargement des utilisateurs');
       setUsersData([]);

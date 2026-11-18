@@ -4,42 +4,45 @@ import { AuthContext } from '../AuthContext';
 import { API_ENDPOINTS } from '../config/api';
 
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
-  const { token, user, logout } = useContext(AuthContext);
+  const { token, authLoading, logout } = useContext(AuthContext);
   const [verified, setVerified] = useState(false);
   const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    // If no token at all, no need to verify
+    if (authLoading) return;
+
+    // If no active session at all, no need to verify
     if (!token) {
       setVerified(true);
       setAuthorized(false);
       return;
     }
 
-    // If admin is not required, just check token exists
+    // If admin is not required, active session is enough
     if (!requireAdmin) {
       setVerified(true);
       setAuthorized(true);
       return;
     }
 
-    // For admin routes, verify the role with the server
+    // For admin routes, verify the role with the server via httpOnly cookie
     const verifyAdmin = async () => {
       try {
         const response = await fetch(API_ENDPOINTS.USER_PROFILE, {
-          headers: { Authorization: `Bearer ${token}` }
+          credentials: 'include'
         });
 
         if (response.ok) {
-          const serverUser = await response.json();
+          const payload = await response.json();
+          const serverUser = payload?.data ?? payload;
           if (serverUser.role === 'admin') {
             setAuthorized(true);
           } else {
             setAuthorized(false);
           }
         } else {
-          // Token is invalid or tampered — log the user out
-          console.warn('Token verification failed — logging out');
+          // Session is invalid or expired — log the user out
+          console.warn('Session verification failed — logging out');
           logout();
           setAuthorized(false);
         }
@@ -51,10 +54,10 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
     };
 
     verifyAdmin();
-  }, [token, requireAdmin, logout]);
+  }, [token, authLoading, requireAdmin, logout]);
 
   // Show loading while verifying with the server
-  if (!verified) {
+  if (authLoading || !verified) {
     return (
       <div style={{
         display: 'flex',

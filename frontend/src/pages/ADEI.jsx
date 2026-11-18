@@ -65,7 +65,8 @@ const ADEI = () => {
   const fetchMembers = async () => {
     try {
       const response = await fetch(API_ENDPOINTS.ADEI_MEMBERS);
-      const data = await response.json();
+      const payload = await response.json();
+      const data = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : []);
       const sortedMembers = data.sort((a, b) => {
         const indexA = roleOrder.indexOf(a.role);
         const indexB = roleOrder.indexOf(b.role);
@@ -81,7 +82,8 @@ const ADEI = () => {
   const fetchPartners = async () => {
     try {
       const response = await fetch(API_ENDPOINTS.PARTNERS);
-      const data = await response.json();
+      const payload = await response.json();
+      const data = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : []);
       setPartners(data);
     } catch (error) {
       console.error('Error fetching partners:', error);

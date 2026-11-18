@@ -77,9 +77,9 @@ const Feedbacks = () => {
 
       const res = await fetch(API_ENDPOINTS.FEEDBACKS, {
         method: 'POST',
+        credentials: 'include',
         headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(submitData),
       });

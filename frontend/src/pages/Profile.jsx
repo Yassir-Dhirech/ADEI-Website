@@ -46,7 +46,7 @@ const Profile = () => {
     const currentPassword = passwordData.currentPassword;
     
     setPasswordValidation({
-      length: newPassword.length >= 6,
+      length: newPassword.length >= 8,
       match: newPassword === confirmPassword && newPassword.length > 0,
       different: newPassword !== currentPassword && newPassword.length > 0
     });
@@ -72,9 +72,7 @@ const Profile = () => {
       try {
         const response = await fetch(getApiUrl('users/password-security'), {
           method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          credentials: 'include'
         });
 
         if (response.ok) {
@@ -137,8 +135,8 @@ const Profile = () => {
       return;
     }
     
-    if (passwordData.newPassword.length < 6) {
-      showModalNotification('Le nouveau mot de passe doit contenir au moins 6 caractères', 'error');
+    if (passwordData.newPassword.length < 8) {
+      showModalNotification('Le nouveau mot de passe doit contenir au moins 8 caractères', 'error');
       return;
     }
     
@@ -152,9 +150,9 @@ const Profile = () => {
     try {
       const response = await fetch(getApiUrl('users/change-password'), {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           currentPassword: passwordData.currentPassword,
@@ -689,7 +687,7 @@ const Profile = () => {
                     placeholder="Entrez le nouveau mot de passe"
                     autoComplete="new-password"
                     required
-                    minLength="6"
+                    minLength="8"
                     style={{
                       color: 'var(--text-primary)',
                       backgroundColor: 'var(--bg-secondary)',
@@ -756,7 +754,7 @@ const Profile = () => {
                           <line x1="9" y1="9" x2="15" y2="15"/>
                         </svg>
                       )}
-                      Au moins 6 caractères
+                      Au moins 8 caractères
                     </div>
                     
                     {passwordData.currentPassword.length > 0 && (
@@ -801,7 +799,7 @@ const Profile = () => {
                     placeholder="Confirmez le nouveau mot de passe"
                     autoComplete="new-password"
                     required
-                    minLength="6"
+                    minLength="8"
                     style={{
                       color: 'var(--text-primary)',
                       backgroundColor: 'var(--bg-secondary)',

@@ -10,6 +10,7 @@ pnpm-debug.log*
 frontend/build/
 build/
 dist/
+**/dist/
 backend-deploy/
 
 # --- Environment variables ---
@@ -30,3 +31,6 @@ backups/*
 *.sql
 *.sql.gz
 *.dump
+
+# --- Local Documentation ---
+PROJECT_ARCHITECTURE_AND_CONCEPTS.md
