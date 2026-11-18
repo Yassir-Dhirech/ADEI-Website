@@ -13,9 +13,6 @@ async function startServer() {
     try {
       await sequelize.authenticate();
       console.log(`Base de données (${sequelize.getDialect()}) connectée avec succès`);
-
-      await sequelize.sync({ force: false });
-      console.log('Modèles synchronisés');
       break;
     } catch (err) {
       retries++;
