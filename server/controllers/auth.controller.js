@@ -1,5 +1,6 @@
 const authService = require('../services/auth.service');
 const env = require('../config/env');
+const { sendSuccess, sendError } = require('../utils/response');
 
 const AUTH_COOKIE_NAME = 'adei_token';
 const COOKIE_OPTIONS = {
@@ -11,20 +12,16 @@ const COOKIE_OPTIONS = {
 
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body || {};
-    if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
-      return res.status(400).json({ success: false, message: 'Email et mot de passe requis' });
-    }
-
+    const { email, password } = req.body;
     const result = await authService.authenticate(email, password);
     if (!result) {
-      return res.status(401).json({ success: false, message: 'Identifiants invalides' });
+      return sendError(res, 401, 'UNAUTHORIZED', 'Identifiants invalides');
     }
 
     res.cookie(AUTH_COOKIE_NAME, result.token, COOKIE_OPTIONS);
-    res.json({ success: true, token: result.token, user: result.user });
+    return sendSuccess(res, { token: result.token, user: result.user }, { message: 'Connexion réussie' });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Erreur serveur' });
+    return sendError(res, 500, 'SERVER_ERROR', 'Erreur serveur');
   }
 };
 
@@ -34,5 +31,5 @@ exports.logout = (req, res) => {
     secure: env.isProduction,
     sameSite: env.isProduction ? 'none' : 'lax'
   });
-  res.json({ success: true });
+  return sendSuccess(res, null, { message: 'Déconnexion réussie' });
 };

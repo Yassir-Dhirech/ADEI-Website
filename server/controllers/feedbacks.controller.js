@@ -1,17 +1,17 @@
 const feedbacksService = require('../services/feedbacks.service');
+const { sendSuccess, sendError } = require('../utils/response');
 
 exports.getPublic = async (req, res) => {
-  const { data, fallback } = await feedbacksService.listPublicFeedbacks();
-  const response = { success: true, data, count: data.length };
-  if (fallback) response.note = 'Données utilisateur non disponibles';
-  res.json(response);
+  const { data, meta } = await feedbacksService.listPublicFeedbacks(req.query);
+  return sendSuccess(res, data, { meta });
 };
 
 exports.getAll = async (req, res) => {
   try {
-    res.json(await feedbacksService.listAllFeedbacks());
+    const { data, meta } = await feedbacksService.listAllFeedbacks(req.query);
+    return sendSuccess(res, data, { meta });
   } catch (error) {
-    res.status(500).json({ message: 'Erreur lors de la récupération des feedbacks' });
+    return sendError(res, 500, 'SERVER_ERROR', 'Erreur lors de la récupération des feedbacks');
   }
 };
 
@@ -20,40 +20,30 @@ exports.create = async (req, res) => {
     const cookieToken = req.cookies?.adei_token;
     const authHeader = req.headers.authorization;
     const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-    await feedbacksService.createFeedback(req.body, cookieToken || headerToken);
-    res.status(201).json({ success: true, message: 'Votre feedback a été envoyé avec succès!' });
+    const feedback = await feedbacksService.createFeedback(req.body, cookieToken || headerToken);
+    return sendSuccess(res, feedback, { status: 201, message: 'Votre feedback a été envoyé avec succès!' });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Erreur lors de l'envoi du feedback" });
+    return sendError(res, 500, 'SERVER_ERROR', "Erreur lors de l'envoi du feedback");
   }
 };
 
 exports.markRead = async (req, res) => {
   try {
     const feedback = await feedbacksService.markAsRead(req.params.id);
-    if (!feedback) return res.status(404).json({ message: 'Feedback non trouvé' });
-    res.json(feedback);
+    if (!feedback) return sendError(res, 404, 'NOT_FOUND', 'Feedback non trouvé');
+    return sendSuccess(res, feedback);
   } catch (error) {
-    res.status(500).json({ message: 'Erreur lors de la mise à jour du feedback' });
+    return sendError(res, 500, 'SERVER_ERROR', 'Erreur lors de la mise à jour du feedback');
   }
 };
 
 exports.publish = async (req, res) => {
   try {
     const feedback = await feedbacksService.setPublished(req.params.id, req.body?.isPublished);
-    if (!feedback) return res.status(404).json({ message: 'Feedback non trouvé' });
-    res.json({ success: true, data: feedback });
+    if (!feedback) return sendError(res, 404, 'NOT_FOUND', 'Feedback non trouvé');
+    return sendSuccess(res, feedback);
   } catch (error) {
-    res.status(500).json({ message: 'Erreur lors de la modération du feedback' });
-  }
-};
-
-exports.remove = async (req, res) => {
-  try {
-    const ok = await feedbacksService.deleteFeedback(req.params.id);
-    if (!ok) return res.status(404).json({ message: 'Feedback non trouvé' });
-    res.json({ success: true, message: 'Feedback supprimé' });
-  } catch (error) {
-    res.status(500).json({ message: 'Erreur lors de la suppression du feedback' });
+    return sendError(res, 500, 'SERVER_ERROR', 'Erreur lors de la modération du feedback');
   }
 };
 
@@ -61,8 +51,18 @@ exports.toggleLike = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId;
     const result = await feedbacksService.toggleLike(req.params.id, userId);
-    res.json({ success: true, ...result });
+    return sendSuccess(res, result);
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Erreur lors du like' });
+    return sendError(res, 500, 'SERVER_ERROR', 'Erreur lors du like');
+  }
+};
+
+exports.remove = async (req, res) => {
+  try {
+    const ok = await feedbacksService.deleteFeedback(req.params.id);
+    if (!ok) return sendError(res, 404, 'NOT_FOUND', 'Feedback non trouvé');
+    return sendSuccess(res, null, { message: 'Feedback supprimé' });
+  } catch (error) {
+    return sendError(res, 500, 'SERVER_ERROR', 'Erreur lors de la suppression du feedback');
   }
 };

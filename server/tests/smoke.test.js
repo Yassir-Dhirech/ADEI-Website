@@ -28,7 +28,7 @@ describe('1. Health & 404', () => {
   });
 });
 
-describe('2. Routes GET publiques', () => {
+describe('2. Routes GET publiques (Enveloppe uniforme { success, data })', () => {
   const publicEndpoints = [
     '/api/news',
     '/api/events',
@@ -36,12 +36,16 @@ describe('2. Routes GET publiques', () => {
     '/api/filieres',
     '/api/partners',
     '/api/adei-members',
-    '/api/feedbacks/public'
+    '/api/feedbacks/public',
+    '/api/adei-roles',
+    '/api/academic'
   ];
 
-  test.each(publicEndpoints)('GET %s répond avec 200', async (endpoint) => {
+  test.each(publicEndpoints)('GET %s répond 200 avec { success: true, data }', async (endpoint) => {
     const res = await request(app).get(endpoint);
     expect(res.statusCode).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.data)).toBe(true);
   });
 });
 
@@ -62,8 +66,8 @@ describe('3. Authentification (Login, 401, 403)', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.token).toBeDefined();
-    adminToken = res.body.token;
+    expect(res.body.data.token).toBeDefined();
+    adminToken = res.body.data.token;
   });
 
   test('POST /api/login utilisateur standard valide renvoie 200 + token JWT', async () => {
@@ -72,8 +76,8 @@ describe('3. Authentification (Login, 401, 403)', () => {
       .send({ email: 'student@test.ma', password: 'UserTest123!' });
 
     expect(res.statusCode).toBe(200);
-    expect(res.body.token).toBeDefined();
-    userToken = res.body.token;
+    expect(res.body.data.token).toBeDefined();
+    userToken = res.body.data.token;
   });
 
   test('Route protégée sans token renvoie 401 Unauthorized', async () => {
@@ -90,7 +94,7 @@ describe('3. Authentification (Login, 401, 403)', () => {
   });
 });
 
-describe('4. Cycle complet CRUD sur /api/news', () => {
+describe('4. Cycle complet CRUD + Pagination sur /api/news', () => {
   let createdNewsId;
 
   test('POST /api/news (admin) crée une actualité (201)', async () => {
@@ -106,13 +110,14 @@ describe('4. Cycle complet CRUD sur /api/news', () => {
 
     expect(res.statusCode).toBe(201);
     expect(res.body.success).toBe(true);
-    expect(res.body.news.id).toBeDefined();
-    createdNewsId = res.body.news.id;
+    expect(res.body.data.id).toBeDefined();
+    createdNewsId = res.body.data.id;
   });
 
-  test('GET /api/news retourne l’actualité créée', async () => {
-    const res = await request(app).get('/api/news');
+  test('GET /api/news?page=1&limit=5 retourne l’actualité + meta de pagination', async () => {
+    const res = await request(app).get('/api/news?page=1&limit=5');
     expect(res.statusCode).toBe(200);
+    expect(res.body.meta).toEqual(expect.objectContaining({ page: 1, limit: 5, total: 1, totalPages: 1 }));
     const found = res.body.data.find((item) => item.id === createdNewsId);
     expect(found).toBeDefined();
     expect(found.title).toBe('Actualité de Test Jest');
@@ -126,7 +131,7 @@ describe('4. Cycle complet CRUD sur /api/news', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.news.title).toBe('Actualité Modifiée par Jest');
+    expect(res.body.data.title).toBe('Actualité Modifiée par Jest');
   });
 
   test('DELETE /api/news/:id (admin) supprime l’actualité (200)', async () => {
@@ -150,7 +155,7 @@ describe('5. Modération des Feedbacks (isPublished)', () => {
         email: 'etudiant@ensaf.ma',
         type: 'avis',
         message: 'Super initiative ADEI !',
-        isPublished: true // Tentative de Mass Assignment : doit être ignorée !
+        isPublished: true
       });
 
     expect(postRes.statusCode).toBe(201);
@@ -163,9 +168,9 @@ describe('5. Modération des Feedbacks (isPublished)', () => {
       .get('/api/feedbacks')
       .set('Authorization', `Bearer ${adminToken}`);
     expect(adminRes.statusCode).toBe(200);
-    expect(adminRes.body.length).toBe(1);
-    expect(adminRes.body[0].isPublished).toBe(false);
-    feedbackId = adminRes.body[0].id;
+    expect(adminRes.body.data.length).toBe(1);
+    expect(adminRes.body.data[0].isPublished).toBe(false);
+    feedbackId = adminRes.body.data[0].id;
   });
 
   test('Un admin peut publier le feedback via PUT /api/feedbacks/:id/publish', async () => {
@@ -183,7 +188,7 @@ describe('5. Modération des Feedbacks (isPublished)', () => {
   });
 });
 
-describe('6. Sécurité Job 3 (Cookie httpOnly & Magic Bytes)', () => {
+describe('6. Sécurité & Validation (Cookie httpOnly, Magic Bytes, Zod)', () => {
   test('POST /api/login pose un cookie httpOnly et GET /api/users/me fonctionne uniquement via Cookie', async () => {
     const loginRes = await request(app)
       .post('/api/login')
@@ -196,15 +201,13 @@ describe('6. Sécurité Job 3 (Cookie httpOnly & Magic Bytes)', () => {
     expect(authCookie).toBeDefined();
     expect(authCookie).toMatch(/HttpOnly/i);
 
-    // Authentification SANS header Authorization, uniquement via le Cookie httpOnly
     const meRes = await request(app)
       .get('/api/users/me')
       .set('Cookie', authCookie);
 
     expect(meRes.statusCode).toBe(200);
-    expect(meRes.body.email).toBe('admin@test.ma');
+    expect(meRes.body.data.email).toBe('admin@test.ma');
 
-    // Déconnexion : le serveur efface le cookie
     const logoutRes = await request(app).post('/api/logout');
     expect(logoutRes.statusCode).toBe(200);
     expect(logoutRes.headers['set-cookie'][0]).toMatch(/adei_token=;/);
@@ -224,6 +227,19 @@ describe('6. Sécurité Job 3 (Cookie httpOnly & Magic Bytes)', () => {
     expect(res.statusCode).toBe(400);
     expect(res.body.success).toBe(false);
     expect(res.body.code).toBe('UPLOAD_ERROR');
+  });
+
+  test('Zod rejette un payload invalide en 400 VALIDATION_ERROR avec error.details', async () => {
+    const res = await request(app)
+      .post('/api/news')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ title: 'A' }); // Trop court + content et date manquants
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(Array.isArray(res.body.error.details)).toBe(true);
+    expect(res.body.error.details.length).toBeGreaterThanOrEqual(2);
   });
 });
 

@@ -37,8 +37,8 @@ export const AuthProvider = ({ children }) => {
           credentials: 'include'
         });
         if (response.ok) {
-          const userData = await response.json();
-          setUser(userData);
+          const payload = await response.json();
+          setUser(payload?.data ?? payload);
         } else {
           setUser(null);
         }
@@ -96,12 +96,13 @@ export const AuthProvider = ({ children }) => {
       });
 
       const data = await response.json();
+      const loggedUser = data.data?.user ?? data.user;
 
-      if (data.success) {
-        setUser(data.user);
+      if (data.success && loggedUser) {
+        setUser(loggedUser);
         setLastActivity(Date.now());
         localStorage.removeItem('token');
-        return { success: true, user: data.user };
+        return { success: true, user: loggedUser };
       } else {
         return { success: false, message: data.message };
       }
@@ -117,7 +118,8 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (response.ok) {
-        const userData = await response.json();
+        const payload = await response.json();
+        const userData = payload?.data ?? payload;
         setUser(userData);
         return { success: true, user: userData };
       } else {

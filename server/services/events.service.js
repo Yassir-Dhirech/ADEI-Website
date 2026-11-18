@@ -1,6 +1,7 @@
 const { Event, Club } = require('../models');
 const { getCachedData, setCachedData, clearCache } = require('../utils/cache');
 const { pickFields } = require('../utils/sanitize');
+const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
 
 function normalizeEventInput(body, files) {
   const data = pickFields(body, 'events');
@@ -21,17 +22,22 @@ function normalizeEventInput(body, files) {
   return data;
 }
 
-async function listEvents() {
-  const cached = getCachedData('events');
-  if (cached) return { data: cached, cached: true };
+async function listEvents(query = {}) {
+  const { page, limit, offset } = parsePagination(query);
+  const cacheKey = `events:p${page}:l${limit}`;
+  const cached = getCachedData(cacheKey);
+  if (cached) return { ...cached, cached: true };
 
-  const events = await Event.findAll({
+  const { rows, count } = await Event.findAndCountAll({
     order: [['order_display', 'ASC'], ['createdAt', 'DESC']],
-    include: [{ model: Club, as: 'club', attributes: ['id', 'club', 'president'], required: false }]
+    include: [{ model: Club, as: 'club', attributes: ['id', 'club', 'president'], required: false }],
+    limit,
+    offset
   });
 
-  setCachedData('events', events);
-  return { data: events, cached: false };
+  const result = { data: rows, meta: buildPaginationMeta(count, page, limit) };
+  setCachedData(cacheKey, result);
+  return { ...result, cached: false };
 }
 
 async function createEvent(body, files) {
@@ -55,24 +61,23 @@ async function deleteEvent(id) {
 }
 
 async function reorderEvent(id, direction) {
-  const current = await Event.findByPk(id);
-  if (!current) return { notFound: true };
+  const all = await Event.findAll({ order: [['order_display', 'ASC'], ['createdAt', 'DESC']] });
+  const idx = all.findIndex((item) => String(item.id) === String(id));
+  if (idx === -1) return { notFound: true };
 
-  const all = await News.findAll({ order: [['order_display', 'ASC'], ['createdAt', 'DESC']] });
-const idx = all.findIndex((item) => String(item.id) === String(id));
-if (idx === -1) return { notFound: true };
-const targetIdx = direction === 'up' && idx > 0
-  ? idx - 1
-  : (direction === 'down' && idx < all.length - 1 ? idx + 1 : -1);
-if (targetIdx === -1) return { unchanged: true };
+  const targetIdx = direction === 'up' && idx > 0
+    ? idx - 1
+    : (direction === 'down' && idx < all.length - 1 ? idx + 1 : -1);
 
-for (let i = 0; i < all.length; i++) {
-  if (all[i].order_display !== i) await all[i].update({ order_display: i });
-}
-await all[idx].update({ order_display: targetIdx });
-await all[targetIdx].update({ order_display: idx });
-clearCache('events'); 
-return { updated: true };
+  if (targetIdx === -1) return { unchanged: true };
+
+  for (let i = 0; i < all.length; i++) {
+    if (all[i].order_display !== i) await all[i].update({ order_display: i });
+  }
+  await all[idx].update({ order_display: targetIdx });
+  await all[targetIdx].update({ order_display: idx });
+  clearCache('events');
+  return { updated: true };
 }
 
 module.exports = { listEvents, createEvent, updateEvent, deleteEvent, reorderEvent };

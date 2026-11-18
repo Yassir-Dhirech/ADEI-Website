@@ -1,47 +1,47 @@
 const newsService = require('../services/news.service');
+const { sendSuccess, sendError } = require('../utils/response');
 
 exports.getAll = async (req, res) => {
-  const { data, cached } = await newsService.listNews();
-  if (cached) return res.json({ success: true, data, cached: true });
-  res.json({ success: true, data, count: data.length });
+  const { data, meta } = await newsService.listNews(req.query);
+  return sendSuccess(res, data, { meta });
 };
 
 exports.create = async (req, res) => {
   try {
     const news = await newsService.createNews(req.body, req.files);
-    res.status(201).json({ success: true, message: 'Actualité créée avec succès!', news });
+    return sendSuccess(res, news, { status: 201, message: 'Actualité créée avec succès!' });
   } catch (error) {
-    res.status(500).json({ success: false, message: `Erreur lors de la création de l'actualité: ${error.message}` });
+    return sendError(res, 500, 'SERVER_ERROR', `Erreur lors de la création de l'actualité: ${error.message}`);
   }
 };
 
 exports.update = async (req, res) => {
   try {
     const news = await newsService.updateNews(req.params.id, req.body, req.files);
-    if (!news) return res.status(404).json({ message: 'Actualité non trouvée' });
-    res.json({ success: true, message: 'Actualité modifiée avec succès!', news });
+    if (!news) return sendError(res, 404, 'NOT_FOUND', 'Actualité non trouvée');
+    return sendSuccess(res, news, { message: 'Actualité modifiée avec succès!' });
   } catch (error) {
-    res.status(500).json({ message: "Erreur lors de la mise à jour de l'actualité" });
+    return sendError(res, 500, 'SERVER_ERROR', "Erreur lors de la mise à jour de l'actualité");
   }
 };
 
 exports.remove = async (req, res) => {
   try {
     const ok = await newsService.deleteNews(req.params.id);
-    if (!ok) return res.status(404).json({ message: 'Actualité non trouvée' });
-    res.json({ success: true, message: 'Actualité supprimée' });
+    if (!ok) return sendError(res, 404, 'NOT_FOUND', 'Actualité non trouvée');
+    return sendSuccess(res, null, { message: 'Actualité supprimée' });
   } catch (error) {
-    res.status(500).json({ message: "Erreur lors de la suppression de l'actualité" });
+    return sendError(res, 500, 'SERVER_ERROR', "Erreur lors de la suppression de l'actualité");
   }
 };
 
 exports.reorder = async (req, res) => {
   try {
     const result = await newsService.reorderNews(req.params.id, req.body.direction);
-    if (result.notFound) return res.status(404).json({ message: 'Actualité non trouvée' });
-    if (result.unchanged) return res.json({ success: true, message: 'Aucun changement nécessaire' });
-    res.json({ success: true, message: 'Ordre modifié avec succès' });
+    if (result.notFound) return sendError(res, 404, 'NOT_FOUND', 'Actualité non trouvée');
+    const message = result.unchanged ? 'Aucun changement nécessaire' : 'Ordre modifié avec succès';
+    return sendSuccess(res, null, { message });
   } catch (error) {
-    res.status(500).json({ message: "Erreur lors de la modification de l'ordre" });
+    return sendError(res, 500, 'SERVER_ERROR', "Erreur lors de la modification de l'ordre");
   }
 };

@@ -2,10 +2,12 @@ const jwt = require('jsonwebtoken');
 const { Feedback, User, FeedbackLike } = require('../models');
 const { pickFields } = require('../utils/sanitize');
 const { JWT_SECRET } = require('../middleware/auth');
+const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
 
-async function listPublicFeedbacks() {
+async function listPublicFeedbacks(query = {}) {
+  const { page, limit, offset } = parsePagination(query);
   try {
-    const data = await Feedback.findAll({
+    const { rows, count } = await Feedback.findAndCountAll({
       where: { isPublished: true },
       order: [['createdAt', 'DESC']],
       attributes: ['id', 'name', 'type', 'message', 'createdAt', 'userId'],
@@ -14,29 +16,37 @@ async function listPublicFeedbacks() {
         as: 'user',
         attributes: ['id', 'username', 'is_president', 'is_representant', 'is_membre_adei', 'is_bureau_adei'],
         required: false
-      }]
+      }],
+      limit,
+      offset
     });
-    return { data, fallback: false };
+    return { data: rows, meta: buildPaginationMeta(count, page, limit), fallback: false };
   } catch {
-    const data = await Feedback.findAll({
+    const { rows, count } = await Feedback.findAndCountAll({
       where: { isPublished: true },
       order: [['createdAt', 'DESC']],
-      attributes: ['id', 'name', 'type', 'message', 'createdAt']
+      attributes: ['id', 'name', 'type', 'message', 'createdAt'],
+      limit,
+      offset
     });
-    return { data, fallback: true };
+    return { data: rows, meta: buildPaginationMeta(count, page, limit), fallback: true };
   }
 }
 
-async function listAllFeedbacks() {
-  return Feedback.findAll({
+async function listAllFeedbacks(query = {}) {
+  const { page, limit, offset } = parsePagination(query);
+  const { rows, count } = await Feedback.findAndCountAll({
     order: [['createdAt', 'DESC']],
     include: [{
       model: User,
       as: 'user',
       attributes: ['id', 'username', 'email', 'is_president', 'is_representant', 'is_membre_adei', 'is_bureau_adei'],
       required: false
-    }]
+    }],
+    limit,
+    offset
   });
+  return { data: rows, meta: buildPaginationMeta(count, page, limit) };
 }
 
 async function createFeedback(body, token) {
@@ -80,4 +90,12 @@ async function toggleLike(feedbackId, userId) {
   return { liked: !existing, likesCount };
 }
 
-module.exports = { listPublicFeedbacks, listAllFeedbacks, createFeedback, markAsRead, setPublished, deleteFeedback , toggleLike };
+module.exports = {
+  listPublicFeedbacks,
+  listAllFeedbacks,
+  createFeedback,
+  markAsRead,
+  setPublished,
+  deleteFeedback,
+  toggleLike
+};

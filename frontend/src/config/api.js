@@ -33,6 +33,7 @@ export const apiFetch = async (url, options = {}) => {
   };
 
   const mergedOptions = {
+    credentials: 'include',
     ...options,
     headers: {
       ...defaultHeaders,
@@ -41,6 +42,14 @@ export const apiFetch = async (url, options = {}) => {
   };
 
   return fetch(url, mergedOptions);
+};
+
+// Extraire data depuis l'enveloppe API uniforme { success, data, meta }
+export const unwrapData = (payload, fallback = null) => {
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    return payload.data ?? fallback;
+  }
+  return payload ?? fallback;
 };
 
 // Fonction utilitaire pour construire les URLs d'API

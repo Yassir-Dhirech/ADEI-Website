@@ -33,7 +33,8 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
         });
 
         if (response.ok) {
-          const serverUser = await response.json();
+          const payload = await response.json();
+          const serverUser = payload?.data ?? payload;
           if (serverUser.role === 'admin') {
             setAuthorized(true);
           } else {

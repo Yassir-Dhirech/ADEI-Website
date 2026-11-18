@@ -1,6 +1,7 @@
 const { News, Club } = require('../models');
 const { getCachedData, setCachedData, clearCache } = require('../utils/cache');
 const { pickFields } = require('../utils/sanitize');
+const { parsePagination, buildPaginationMeta } = require('../utils/pagination');
 
 function normalizeNewsInput(body, files) {
   const data = pickFields(body, 'news');
@@ -21,17 +22,22 @@ function normalizeNewsInput(body, files) {
   return data;
 }
 
-async function listNews() {
-  const cached = getCachedData('news');
-  if (cached) return { data: cached, cached: true };
+async function listNews(query = {}) {
+  const { page, limit, offset } = parsePagination(query);
+  const cacheKey = `news:p${page}:l${limit}`;
+  const cached = getCachedData(cacheKey);
+  if (cached) return { ...cached, cached: true };
 
-  const news = await News.findAll({
+  const { rows, count } = await News.findAndCountAll({
     order: [['order_display', 'ASC'], ['createdAt', 'DESC']],
-    include: [{ model: Club, as: 'club', attributes: ['id', 'club', 'president'], required: false }]
+    include: [{ model: Club, as: 'club', attributes: ['id', 'club', 'president'], required: false }],
+    limit,
+    offset
   });
 
-  setCachedData('news', news);
-  return { data: news, cached: false };
+  const result = { data: rows, meta: buildPaginationMeta(count, page, limit) };
+  setCachedData(cacheKey, result);
+  return { ...result, cached: false };
 }
 
 async function createNews(body, files) {
@@ -55,24 +61,23 @@ async function deleteNews(id) {
 }
 
 async function reorderNews(id, direction) {
-  const current = await News.findByPk(id);
-  if (!current) return { notFound: true };
-
   const all = await News.findAll({ order: [['order_display', 'ASC'], ['createdAt', 'DESC']] });
-const idx = all.findIndex((item) => String(item.id) === String(id));
-if (idx === -1) return { notFound: true };
-const targetIdx = direction === 'up' && idx > 0
-  ? idx - 1
-  : (direction === 'down' && idx < all.length - 1 ? idx + 1 : -1);
-if (targetIdx === -1) return { unchanged: true };
+  const idx = all.findIndex((item) => String(item.id) === String(id));
+  if (idx === -1) return { notFound: true };
 
-for (let i = 0; i < all.length; i++) {
-  if (all[i].order_display !== i) await all[i].update({ order_display: i });
-}
-await all[idx].update({ order_display: targetIdx });
-await all[targetIdx].update({ order_display: idx });
-clearCache('news'); 
-return { updated: true };
+  const targetIdx = direction === 'up' && idx > 0
+    ? idx - 1
+    : (direction === 'down' && idx < all.length - 1 ? idx + 1 : -1);
+
+  if (targetIdx === -1) return { unchanged: true };
+
+  for (let i = 0; i < all.length; i++) {
+    if (all[i].order_display !== i) await all[i].update({ order_display: i });
+  }
+  await all[idx].update({ order_display: targetIdx });
+  await all[targetIdx].update({ order_display: idx });
+  clearCache('news');
+  return { updated: true };
 }
 
 module.exports = { listNews, createNews, updateNews, deleteNews, reorderNews };

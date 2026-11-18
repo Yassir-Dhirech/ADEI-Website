@@ -13,11 +13,15 @@ const setCachedData = (key, data) => {
   cache.set(key, { data, timestamp: Date.now() });
 };
 
-const clearCache = (key) => {
-  if (key) {
-    cache.delete(key);
-  } else {
+const clearCache = (prefix) => {
+  if (!prefix) {
     cache.clear();
+    return;
+  }
+  for (const key of cache.keys()) {
+    if (key === prefix || key.startsWith(`${prefix}:`)) {
+      cache.delete(key);
+    }
   }
 };
 

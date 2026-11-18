@@ -1,37 +1,40 @@
 const membersService = require('../services/adeiMembers.service');
+const { sendSuccess, sendError } = require('../utils/response');
 
 exports.getAll = async (req, res) => {
   try {
-    res.json(await membersService.listMembers());
+    const data = await membersService.listMembers();
+    return sendSuccess(res, data, { meta: { total: data.length } });
   } catch (error) {
-    res.status(500).json({ message: 'Erreur lors de la récupération des membres ADEI' });
+    return sendError(res, 500, 'SERVER_ERROR', 'Erreur lors de la récupération des membres ADEI');
   }
 };
 
 exports.create = async (req, res) => {
   try {
-    res.status(201).json(await membersService.createMember(req.body, req.file));
+    const member = await membersService.createMember(req.body, req.file);
+    return sendSuccess(res, member, { status: 201, message: 'Membre ADEI créé avec succès!' });
   } catch (error) {
-    res.status(500).json({ message: 'Erreur lors de la création du membre ADEI' });
+    return sendError(res, 500, 'SERVER_ERROR', 'Erreur lors de la création du membre ADEI');
   }
 };
 
 exports.update = async (req, res) => {
   try {
     const member = await membersService.updateMember(req.params.id, req.body, req.file);
-    if (!member) return res.status(404).json({ message: 'Membre ADEI non trouvé' });
-    res.json(member);
+    if (!member) return sendError(res, 404, 'NOT_FOUND', 'Membre ADEI non trouvé');
+    return sendSuccess(res, member, { message: 'Membre ADEI modifié avec succès!' });
   } catch (error) {
-    res.status(500).json({ message: 'Erreur lors de la mise à jour du membre ADEI' });
+    return sendError(res, 500, 'SERVER_ERROR', 'Erreur lors de la mise à jour du membre ADEI');
   }
 };
 
 exports.remove = async (req, res) => {
   try {
     const ok = await membersService.deleteMember(req.params.id);
-    if (!ok) return res.status(404).json({ message: 'Membre ADEI non trouvé' });
-    res.json({ success: true, message: 'Membre ADEI supprimé' });
+    if (!ok) return sendError(res, 404, 'NOT_FOUND', 'Membre ADEI non trouvé');
+    return sendSuccess(res, null, { message: 'Membre ADEI supprimé' });
   } catch (error) {
-    res.status(500).json({ message: 'Erreur lors de la suppression du membre ADEI' });
+    return sendError(res, 500, 'SERVER_ERROR', 'Erreur lors de la suppression du membre ADEI');
   }
 };

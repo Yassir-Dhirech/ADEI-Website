@@ -5,6 +5,8 @@ const newsController = require('../controllers/news.controller');
 const { upload, validateUploadedFiles } = require('../config/upload');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const { asyncWrapper } = require('../middleware/errorHandler');
+const { validate } = require('../middleware/validate');
+const { newsCreateSchema, newsUpdateSchema } = require('../validators/schemas');
 
 const newsUpload = upload.fields([
   { name: 'image', maxCount: 1 },
@@ -12,8 +14,8 @@ const newsUpload = upload.fields([
 ]);
 
 router.get('/', asyncWrapper(newsController.getAll));
-router.post('/', authMiddleware, adminMiddleware, newsUpload, validateUploadedFiles, newsController.create);
-router.put('/:id', authMiddleware, adminMiddleware, newsUpload, validateUploadedFiles, newsController.update);
+router.post('/', authMiddleware, adminMiddleware, newsUpload, validateUploadedFiles, validate(newsCreateSchema), newsController.create);
+router.put('/:id', authMiddleware, adminMiddleware, newsUpload, validateUploadedFiles, validate(newsUpdateSchema), newsController.update);
 router.delete('/:id', authMiddleware, adminMiddleware, newsController.remove);
 router.patch('/:id/reorder', authMiddleware, adminMiddleware, newsController.reorder);
 

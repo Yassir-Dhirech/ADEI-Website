@@ -1,14 +1,24 @@
 const service = require('../services/adeiRoles.service');
+const { sendSuccess, sendError } = require('../utils/response');
 
-exports.getAll = async (req, res) => res.json({ success: true, data: await service.listRoles() });
-exports.create = async (req, res) => res.status(201).json({ success: true, data: await service.createRole(req.body) });
+exports.getAll = async (req, res) => {
+  const data = await service.listRoles();
+  return sendSuccess(res, data, { meta: { total: data.length } });
+};
+
+exports.create = async (req, res) => {
+  const role = await service.createRole(req.body);
+  return sendSuccess(res, role, { status: 201, message: 'Rôle créé avec succès!' });
+};
+
 exports.update = async (req, res) => {
   const role = await service.updateRole(req.params.id, req.body);
-  if (!role) return res.status(404).json({ success: false, message: 'Rôle non trouvé' });
-  res.json({ success: true, data: role });
+  if (!role) return sendError(res, 404, 'NOT_FOUND', 'Rôle non trouvé');
+  return sendSuccess(res, role, { message: 'Rôle modifié avec succès!' });
 };
+
 exports.remove = async (req, res) => {
   const ok = await service.deleteRole(req.params.id);
-  if (!ok) return res.status(404).json({ success: false, message: 'Rôle non trouvé' });
-  res.json({ success: true, message: 'Rôle supprimé' });
+  if (!ok) return sendError(res, 404, 'NOT_FOUND', 'Rôle non trouvé');
+  return sendSuccess(res, null, { message: 'Rôle supprimé' });
 };
