@@ -40,12 +40,12 @@ const Club = sequelize.define('Club', {
     defaultValue: ''
   },
   activities: {
-    type: DataTypes.TEXT,
-    defaultValue: ''
+    type: DataTypes.JSONB,
+    defaultValue: []
   },
   achievements: {
-    type: DataTypes.TEXT,
-    defaultValue: ''
+    type: DataTypes.JSONB,
+    defaultValue: []
   },
   members: {
     type: DataTypes.INTEGER,

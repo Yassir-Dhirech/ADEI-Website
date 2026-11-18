@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { Feedback, User } = require('../models');
+const { Feedback, User, FeedbackLike } = require('../models');
 const { pickFields } = require('../utils/sanitize');
 const { JWT_SECRET } = require('../middleware/auth');
 
@@ -69,4 +69,15 @@ async function deleteFeedback(id) {
   return (await Feedback.destroy({ where: { id } })) > 0;
 }
 
-module.exports = { listPublicFeedbacks, listAllFeedbacks, createFeedback, markAsRead, setPublished, deleteFeedback };
+async function toggleLike(feedbackId, userId) {
+  const existing = await FeedbackLike.findOne({ where: { feedbackId, userId } });
+  if (existing) {
+    await existing.destroy();
+  } else {
+    await FeedbackLike.create({ feedbackId, userId });
+  }
+  const likesCount = await FeedbackLike.count({ where: { feedbackId } });
+  return { liked: !existing, likesCount };
+}
+
+module.exports = { listPublicFeedbacks, listAllFeedbacks, createFeedback, markAsRead, setPublished, deleteFeedback , toggleLike };

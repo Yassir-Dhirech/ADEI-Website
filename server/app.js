@@ -2,6 +2,10 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 
+const adeiRolesRoutes = require('./routes/adeiRoles.routes');
+const academicRoutes = require('./routes/academic.routes');
+
+
 const env = require('./config/env');
 const { UPLOAD_DIR } = require('./config/upload');
 const { errorMiddleware, notFoundMiddleware } = require('./middleware/errorHandler');
@@ -70,6 +74,8 @@ app.use('/api/users', usersRoutes);
 app.use('/api/adei-members', adeiMembersRoutes);
 app.use('/api/filieres', filieresRoutes);
 app.use('/api/partners', partnersRoutes);
+app.use('/api/adei-roles', adeiRolesRoutes);
+app.use('/api/academic', academicRoutes);
 
 // Route racine informative
 app.get('/', (req, res) => {

@@ -56,7 +56,12 @@ const Event = sequelize.define('Event', {
     type: DataTypes.STRING(500),
     allowNull: true,
     comment: 'Lien externe vers plus d\'informations'
-  }
+  },
+  order_display: {
+  type: DataTypes.INTEGER,
+  allowNull: false,
+  defaultValue: 0
+}
 }, {
   tableName: 'events',
   timestamps: true

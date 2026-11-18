@@ -45,8 +45,8 @@ function normalizeClubInput(body, file) {
   const data = pickFields(body, 'clubs');
   if (file) data.image = `/uploads/${file.filename}`;
   if (data.members) data.members = parseInt(data.members, 10) || 0;
-  if (data.activities && typeof data.activities !== 'string') data.activities = JSON.stringify(data.activities);
-  if (data.achievements && typeof data.achievements !== 'string') data.achievements = JSON.stringify(data.achievements);
+  if (data.activities !== undefined) data.activities = parseJsonList(data.activities);
+  if (data.achievements !== undefined) data.achievements = parseJsonList(data.achievements);
   return data;
 }
 

@@ -37,7 +37,14 @@ const ADEIMember = sequelize.define('ADEIMember', {
   photo: {
     type: DataTypes.STRING(500),
     defaultValue: '/images/default.jpg'
-  }
+  },
+  roleId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references:{
+      model: 'adei_roles',
+      key: 'id' }
+    }
 }, {
   tableName: 'adei_members',
   timestamps: true

@@ -56,3 +56,13 @@ exports.remove = async (req, res) => {
     res.status(500).json({ message: 'Erreur lors de la suppression du feedback' });
   }
 };
+
+exports.toggleLike = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.userId;
+    const result = await feedbacksService.toggleLike(req.params.id, userId);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Erreur lors du like' });
+  }
+};

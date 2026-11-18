@@ -26,7 +26,7 @@ async function listNews() {
   if (cached) return { data: cached, cached: true };
 
   const news = await News.findAll({
-    order: [['createdAt', 'DESC']],
+    order: [['order_display', 'ASC'], ['createdAt', 'DESC']],
     include: [{ model: Club, as: 'club', attributes: ['id', 'club', 'president'], required: false }]
   });
 
@@ -58,22 +58,21 @@ async function reorderNews(id, direction) {
   const current = await News.findByPk(id);
   if (!current) return { notFound: true };
 
-  const all = await News.findAll({ order: [['createdAt', 'DESC']] });
-  const idx = all.findIndex((item) => item.id == id);
-  if (idx === -1) return { notFound: true };
+  const all = await News.findAll({ order: [['order_display', 'ASC'], ['createdAt', 'DESC']] });
+const idx = all.findIndex((item) => String(item.id) === String(id));
+if (idx === -1) return { notFound: true };
+const targetIdx = direction === 'up' && idx > 0
+  ? idx - 1
+  : (direction === 'down' && idx < all.length - 1 ? idx + 1 : -1);
+if (targetIdx === -1) return { unchanged: true };
 
-  const targetIdx = direction === 'up' && idx > 0
-    ? idx - 1
-    : (direction === 'down' && idx < all.length - 1 ? idx + 1 : -1);
-
-  if (targetIdx === -1) return { unchanged: true };
-
-  const target = all[targetIdx];
-  const tempDate = current.createdAt;
-  await current.update({ createdAt: target.createdAt });
-  await target.update({ createdAt: tempDate });
-  clearCache('news');
-  return { updated: true };
+for (let i = 0; i < all.length; i++) {
+  if (all[i].order_display !== i) await all[i].update({ order_display: i });
+}
+await all[idx].update({ order_display: targetIdx });
+await all[targetIdx].update({ order_display: idx });
+clearCache('news'); 
+return { updated: true };
 }
 
 module.exports = { listNews, createNews, updateNews, deleteNews, reorderNews };

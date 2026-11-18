@@ -20,5 +20,7 @@ router.post('/', feedbackLimiter, feedbacksController.create);
 router.put('/:id/read', authMiddleware, adminMiddleware, feedbacksController.markRead);
 router.put('/:id/publish', authMiddleware, adminMiddleware, feedbacksController.publish);
 router.delete('/:id', authMiddleware, adminMiddleware, feedbacksController.remove);
+router.post('/:id/like', authMiddleware, feedbacksController.toggleLike);
+
 
 module.exports = router;
