@@ -1,0 +1,39 @@
+# Robots.txt for ADEI ENSA Fès Website
+# Domain: adei-ensaf.ma
+
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://adei-ensaf.ma/sitemap.xml
+
+# Allow important pages for indexing
+Allow: /
+Allow: /adei
+Allow: /clubs
+Allow: /events
+Allow: /news
+Allow: /contact
+Allow: /feedbacks
+
+# Disallow admin and API areas
+Disallow: /admin/
+Disallow: /api/
+Disallow: /login
+Disallow: /private/
+
+# Crawl delay to be respectful to server
+Crawl-delay: 1
+
+# Additional directives for major search engines
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Slurp
+Allow: /
+Crawl-delay: 1

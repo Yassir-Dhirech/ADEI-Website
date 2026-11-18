@@ -6,6 +6,7 @@ export class ADEIMember extends Model {
   declare name: string;
   declare role: string;
   declare roleId: number | null;
+  declare mandate: string;
   declare email: string;
   declare photo: string;
   declare readonly createdAt: Date;
@@ -25,6 +26,7 @@ ADEIMember.init({
     allowNull: false
   },
   roleId: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'adei_roles', key: 'id' } },
+  mandate: { type: DataTypes.STRING(20), allowNull: false, defaultValue: '2025/2026' },
   email: { type: DataTypes.STRING(255), allowNull: false },
   photo: { type: DataTypes.STRING(500), defaultValue: '/images/default.jpg' }
 }, {

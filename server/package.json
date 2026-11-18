@@ -11,6 +11,8 @@
     "migrate": "sequelize-cli db:migrate",
     "migrate:undo": "sequelize-cli db:migrate:undo",
     "create-admin": "tsx scripts/createAdmin.js",
+    "seed:demo": "tsx scripts/seedDemo.ts",
+    "seed:clear": "tsx scripts/seedDemo.ts --clear",
     "test": "NODE_ENV=test DB_NAME=adei_test jest --runInBand --forceExit"
   },
   "dependencies": {

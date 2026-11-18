@@ -99,6 +99,7 @@ export const adeiMemberCreateSchema = z.object({
   name: z.string().trim().min(2, 'Nom requis'),
   role: z.string().trim().min(2, 'Rôle requis'),
   roleId: z.coerce.number().int().optional().nullable(),
+  mandate: z.string().trim().min(4, 'Mandat requis (ex: 2025/2026)').max(20).optional(),
   email: z.string().trim().email('Email invalide')
 });
 export const adeiMemberUpdateSchema = adeiMemberCreateSchema.partial();
