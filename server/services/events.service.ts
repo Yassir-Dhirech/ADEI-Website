@@ -2,6 +2,7 @@ import { Event, Club } from '../models';
 import { getCachedData, setCachedData, clearCache } from '../utils/cache';
 import { pickFields } from '../utils/sanitize';
 import { parsePagination, buildPaginationMeta, PaginationMeta } from '../utils/pagination';
+import { storageService } from './storage.service';
 
 type UploadedFields = Record<string, Express.Multer.File[]> | Express.Multer.File[] | undefined;
 
@@ -10,7 +11,11 @@ function getFieldFile(files: UploadedFields, field: string): Express.Multer.File
   return files[field]?.[0];
 }
 
-function normalizeEventInput(body: Record<string, unknown>, files: UploadedFields): Record<string, unknown> {
+async function normalizeEventInput(
+  body: Record<string, unknown>,
+  files: UploadedFields,
+  existing?: Event | null
+): Promise<Record<string, unknown>> {
   const data = pickFields(body, 'events');
 
   if (data.clubId === 'adei' || data.clubId === 'ensa') {
@@ -23,10 +28,20 @@ function normalizeEventInput(body: Record<string, unknown>, files: UploadedField
   if (data.clubId && !isNaN(Number(data.clubId))) {
     data.clubId = parseInt(String(data.clubId), 10);
   }
+
   const img = getFieldFile(files, 'image');
   const doc = getFieldFile(files, 'document');
-  if (img) data.image = `/uploads/${img.filename}`;
-  if (doc) data.document = `/uploads/${doc.filename}`;
+
+  if (img) {
+    if (existing?.image) await storageService.deleteFile(existing.image);
+    const res = await storageService.saveFile(img, 'events');
+    data.image = res.url;
+  }
+  if (doc) {
+    if (existing?.document) await storageService.deleteFile(existing.document);
+    const res = await storageService.saveFile(doc, 'documents');
+    data.document = res.url;
+  }
 
   return data;
 }
@@ -50,21 +65,30 @@ export async function listEvents(query: Record<string, unknown> = {}): Promise<{
 }
 
 export async function createEvent(body: Record<string, unknown>, files: UploadedFields): Promise<Event> {
-  const event = await Event.create(normalizeEventInput(body, files));
+  const input = await normalizeEventInput(body, files);
+  const event = await Event.create(input);
   clearCache('events');
   return event;
 }
 
 export async function updateEvent(id: string | number, body: Record<string, unknown>, files: UploadedFields): Promise<Event | null> {
-  const [updated] = await Event.update(normalizeEventInput(body, files), { where: { id } });
-  if (!updated) return null;
+  const existing = await Event.findByPk(id);
+  if (!existing) return null;
+
+  const input = await normalizeEventInput(body, files, existing);
+  await existing.update(input);
   clearCache('events');
-  return Event.findByPk(id);
+  return existing;
 }
 
 export async function deleteEvent(id: string | number): Promise<boolean> {
-  const deleted = await Event.destroy({ where: { id } });
-  if (!deleted) return false;
+  const event = await Event.findByPk(id);
+  if (!event) return false;
+
+  if (event.image) await storageService.deleteFile(event.image);
+  if (event.document) await storageService.deleteFile(event.document);
+
+  await event.destroy();
   clearCache('events');
   return true;
 }

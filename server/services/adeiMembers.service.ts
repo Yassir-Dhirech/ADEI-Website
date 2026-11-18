@@ -1,6 +1,6 @@
 import { ADEIMember, AdeiRole } from '../models';
-import { safeDeleteUpload } from '../config/upload';
 import { pickFields } from '../utils/sanitize';
+import { storageService } from './storage.service';
 
 async function attachRoleId(data: Record<string, unknown>): Promise<void> {
   if (typeof data.role === 'string' && !data.roleId) {
@@ -25,20 +25,32 @@ export async function createMember(body: Record<string, unknown>, file?: Express
   const data = pickFields(body, 'adei-members');
   if (!data.mandate) data.mandate = '2025/2026';
   await attachRoleId(data);
-  if (file) data.photo = `/uploads/${file.filename}`;
+  if (file) {
+    const res = await storageService.saveFile(file, 'adei-members');
+    data.photo = res.url;
+  }
   return ADEIMember.create(data);
 }
 
 export async function updateMember(id: string | number, body: Record<string, unknown>, file?: Express.Multer.File): Promise<ADEIMember | null> {
+  const member = await ADEIMember.findByPk(id);
+  if (!member) return null;
+
   const data = pickFields(body, 'adei-members');
   await attachRoleId(data);
-  if (file) data.photo = `/uploads/${file.filename}`;
-  const [updated] = await ADEIMember.update(data, { where: { id } });
-  return updated ? ADEIMember.findByPk(id) : null;
+  if (file) {
+    if (member.photo) await storageService.deleteFile(member.photo);
+    const res = await storageService.saveFile(file, 'adei-members');
+    data.photo = res.url;
+  }
+  await member.update(data);
+  return member;
 }
 
 export async function deleteMember(id: string | number): Promise<boolean> {
   const member = await ADEIMember.findByPk(id);
-  if (member) safeDeleteUpload(member.photo);
-  return (await ADEIMember.destroy({ where: { id } })) > 0;
+  if (!member) return false;
+  if (member.photo) await storageService.deleteFile(member.photo);
+  await member.destroy();
+  return true;
 }
