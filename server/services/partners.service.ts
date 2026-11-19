@@ -1,6 +1,6 @@
 import { Partner } from '../models';
-import { safeDeleteUpload } from '../config/upload';
 import { pickFields } from '../utils/sanitize';
+import { storageService } from './storage.service';
 
 export async function listPartners(): Promise<Partner[]> {
   return Partner.findAll({
@@ -11,21 +11,33 @@ export async function listPartners(): Promise<Partner[]> {
 
 export async function createPartner(body: Record<string, unknown>, file?: Express.Multer.File): Promise<Partner> {
   const data = pickFields(body, 'partners');
-  if (file) data.logo = `/uploads/${file.filename}`;
+  if (file) {
+    const res = await storageService.saveFile(file, 'partners');
+    data.logo = res.url;
+  }
   return Partner.create(data);
 }
 
 export async function updatePartner(id: string | number, body: Record<string, unknown>, file?: Express.Multer.File): Promise<Partner | null> {
+  const partner = await Partner.findByPk(id);
+  if (!partner) return null;
+
   const data = pickFields(body, 'partners');
-  if (file) data.logo = `/uploads/${file.filename}`;
-  const [updated] = await Partner.update(data, { where: { id } });
-  return updated ? Partner.findByPk(id) : null;
+  if (file) {
+    if (partner.logo) await storageService.deleteFile(partner.logo);
+    const res = await storageService.saveFile(file, 'partners');
+    data.logo = res.url;
+  }
+  await partner.update(data);
+  return partner;
 }
 
 export async function deletePartner(id: string | number): Promise<boolean> {
   const partner = await Partner.findByPk(id);
-  if (partner) safeDeleteUpload(partner.logo);
-  return (await Partner.destroy({ where: { id } })) > 0;
+  if (!partner) return false;
+  if (partner.logo) await storageService.deleteFile(partner.logo);
+  await partner.destroy();
+  return true;
 }
 
 export async function reorderPartner(id: string | number, direction: string): Promise<{ notFound?: boolean; unchanged?: boolean; updated?: boolean }> {

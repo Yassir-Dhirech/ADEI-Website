@@ -1,6 +1,6 @@
 import { Club } from '../models';
-import { safeDeleteUpload } from '../config/upload';
 import { pickFields } from '../utils/sanitize';
+import { storageService } from './storage.service';
 
 function parseJsonList(value: unknown): string[] {
   if (!value) return [];
@@ -42,9 +42,17 @@ function formatClub(club: Club) {
   };
 }
 
-function normalizeClubInput(body: Record<string, unknown>, file?: Express.Multer.File): Record<string, unknown> {
+async function normalizeClubInput(
+  body: Record<string, unknown>,
+  file?: Express.Multer.File,
+  existing?: Club | null
+): Promise<Record<string, unknown>> {
   const data = pickFields(body, 'clubs');
-  if (file) data.image = `/uploads/${file.filename}`;
+  if (file) {
+    if (existing?.image) await storageService.deleteFile(existing.image);
+    const res = await storageService.saveFile(file, 'clubs');
+    data.image = res.url;
+  }
   if (data.members !== undefined) data.members = parseInt(String(data.members), 10) || 0;
   if (data.activities !== undefined) data.activities = parseJsonList(data.activities);
   if (data.achievements !== undefined) data.achievements = parseJsonList(data.achievements);
@@ -57,21 +65,22 @@ export async function listClubs() {
 }
 
 export async function createClub(body: Record<string, unknown>, file?: Express.Multer.File): Promise<Club> {
-  return Club.create(normalizeClubInput(body, file));
+  const input = await normalizeClubInput(body, file);
+  return Club.create(input);
 }
 
 export async function updateClub(id: string | number, body: Record<string, unknown>, file?: Express.Multer.File): Promise<Club | null> {
   const club = await Club.findByPk(id);
   if (!club) return null;
-  if (file) safeDeleteUpload(club.image);
-  await club.update(normalizeClubInput(body, file));
+  const input = await normalizeClubInput(body, file, club);
+  await club.update(input);
   return club;
 }
 
 export async function deleteClub(id: string | number): Promise<boolean> {
   const club = await Club.findByPk(id);
   if (!club) return false;
-  safeDeleteUpload(club.image);
+  if (club.image) await storageService.deleteFile(club.image);
   await club.destroy();
   return true;
 }

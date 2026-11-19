@@ -102,11 +102,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      REACT_APP_API_URL: ${REACT_APP_API_URL:-http://localhost:5001}
-      REACT_APP_ENV: ${REACT_APP_ENV:-development}
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:5001}
       GENERATE_SOURCEMAP: ${GENERATE_SOURCEMAP:-true}
-      WATCHPACK_POLLING: "true"
-      CHOKIDAR_USEPOLLING: "true"
     volumes:
       - ./frontend:/app
       - /app/node_modules

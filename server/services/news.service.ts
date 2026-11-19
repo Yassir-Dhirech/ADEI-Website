@@ -2,6 +2,7 @@ import { News, Club } from '../models';
 import { getCachedData, setCachedData, clearCache } from '../utils/cache';
 import { pickFields } from '../utils/sanitize';
 import { parsePagination, buildPaginationMeta, PaginationMeta } from '../utils/pagination';
+import { storageService } from './storage.service';
 
 type UploadedFields = Record<string, Express.Multer.File[]> | Express.Multer.File[] | undefined;
 
@@ -10,7 +11,11 @@ function getFieldFile(files: UploadedFields, field: string): Express.Multer.File
   return files[field]?.[0];
 }
 
-function normalizeNewsInput(body: Record<string, unknown>, files: UploadedFields): Record<string, unknown> {
+async function normalizeNewsInput(
+  body: Record<string, unknown>,
+  files: UploadedFields,
+  existing?: News | null
+): Promise<Record<string, unknown>> {
   const data = pickFields(body, 'news');
 
   if (data.clubId === 'adei' || data.clubId === 'ensa') {
@@ -23,10 +28,20 @@ function normalizeNewsInput(body: Record<string, unknown>, files: UploadedFields
   if (data.clubId && !isNaN(Number(data.clubId))) {
     data.clubId = parseInt(String(data.clubId), 10);
   }
+
   const img = getFieldFile(files, 'image');
   const doc = getFieldFile(files, 'document');
-  if (img) data.image = `/uploads/${img.filename}`;
-  if (doc) data.document = `/uploads/${doc.filename}`;
+
+  if (img) {
+    if (existing?.image) await storageService.deleteFile(existing.image);
+    const res = await storageService.saveFile(img, 'news');
+    data.image = res.url;
+  }
+  if (doc) {
+    if (existing?.document) await storageService.deleteFile(existing.document);
+    const res = await storageService.saveFile(doc, 'documents');
+    data.document = res.url;
+  }
 
   return data;
 }
@@ -50,21 +65,28 @@ export async function listNews(query: Record<string, unknown> = {}): Promise<{ d
 }
 
 export async function createNews(body: Record<string, unknown>, files: UploadedFields): Promise<News> {
-  const news = await News.create(normalizeNewsInput(body, files));
+  const input = await normalizeNewsInput(body, files);
+  const news = await News.create(input);
   clearCache('news');
   return news;
 }
 
 export async function updateNews(id: string | number, body: Record<string, unknown>, files: UploadedFields): Promise<News | null> {
-  const [updated] = await News.update(normalizeNewsInput(body, files), { where: { id } });
-  if (!updated) return null;
+  const existing = await News.findByPk(id);
+  if (!existing) return null;
+
+  const input = await normalizeNewsInput(body, files, existing);
+  await existing.update(input);
   clearCache('news');
-  return News.findByPk(id);
+  return existing;
 }
 
 export async function deleteNews(id: string | number): Promise<boolean> {
-  const deleted = await News.destroy({ where: { id } });
-  if (!deleted) return false;
+  const news = await News.findByPk(id);
+  if (!news) return false;
+  if (news.image) await storageService.deleteFile(news.image);
+  if (news.document) await storageService.deleteFile(news.document);
+  await news.destroy();
   clearCache('news');
   return true;
 }

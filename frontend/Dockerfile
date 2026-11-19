@@ -1,14 +1,7 @@
 FROM node:20-alpine
-
 WORKDIR /app
-
 COPY package*.json ./
-RUN npm ci && chown -R node:node /app
-
-COPY --chown=node:node . .
-
-USER node
-
+RUN npm ci
+COPY . .
 EXPOSE 3000
-
-CMD ["npm", "start"]
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
