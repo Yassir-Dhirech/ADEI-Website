@@ -8,7 +8,9 @@ const FileType = require('file-type') as {
 };
 
 export const SERVER_ROOT = path.resolve(__dirname, '..');
-export const UPLOAD_DIR = path.join(SERVER_ROOT, 'uploads');
+export const UPLOAD_DIR = process.env.VERCEL
+  ? path.join('/tmp', 'uploads')
+  : path.join(SERVER_ROOT, 'uploads');
 
 export const safeDeleteUpload = (fileUrl: string | null | undefined): void => {
   if (!fileUrl || typeof fileUrl !== 'string' || fileUrl === '/images/default.jpg') {
