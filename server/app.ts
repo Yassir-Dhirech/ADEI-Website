@@ -55,6 +55,27 @@ app.use(express.json());
 app.use(cookieParser());
 app.use('/uploads', express.static(UPLOAD_DIR));
 
+// Interception de sécurité : Si des erreurs de configuration existent sur Vercel, les afficher clairement
+if (env.configErrors && env.configErrors.length > 0) {
+  app.use((_req, res) => {
+    res.status(500).json({
+      success: false,
+      error: 'CONFIGURATION_ERROR',
+      message: 'Erreur de configuration des variables d\'environnement sur le serveur.',
+      details: env.configErrors
+    });
+  });
+}
+
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    message: 'API ADEI ENSA Fès (Production)',
+    environment: env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.get('/health', (_req, res) => {
   res.status(200).json({
     status: 'ok',

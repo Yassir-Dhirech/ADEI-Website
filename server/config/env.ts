@@ -21,6 +21,7 @@ interface EnvConfig {
   readonly CORS_ORIGINS: readonly string[];
   readonly TRUST_PROXY: boolean;
   readonly DB: DbConfig;
+  readonly configErrors: readonly string[];
 }
 
 const errors: string[] = [];
@@ -90,7 +91,9 @@ if (errors.length > 0) {
   console.error('\n❌ ERREURS DE CONFIGURATION DE DÉMARRAGE:');
   errors.forEach((err) => console.error(`  - ${err}`));
   console.error('\nVérifiez votre fichier .env et relancez le serveur.\n');
-  process.exit(1);
+  if (!process.env.VERCEL) {
+    process.exit(1);
+  }
 }
 
 const env: EnvConfig = Object.freeze({
@@ -101,6 +104,7 @@ const env: EnvConfig = Object.freeze({
   JWT_SECRET,
   CORS_ORIGINS: Object.freeze(CORS_ORIGINS),
   TRUST_PROXY,
+  configErrors: Object.freeze([...errors]),
   DB: Object.freeze({
     dialect: DB_DIALECT,
     host: DB_HOST,
