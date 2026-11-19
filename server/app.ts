@@ -20,8 +20,9 @@ import academicRoutes from './routes/academic.routes';
 
 const app = express();
 
-if (env.TRUST_PROXY) {
-  app.set('trust proxy', 1);
+if (process.env.TRUST_PROXY) {
+  const hops = parseInt(process.env.TRUST_PROXY, 10);
+  app.set('trust proxy', isNaN(hops) ? (process.env.TRUST_PROXY === 'true') : hops);
 }
 
 app.use(cors({
