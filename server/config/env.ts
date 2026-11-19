@@ -37,25 +37,40 @@ if (!JWT_SECRET) {
   errors.push(`JWT_SECRET est trop court (${JWT_SECRET.length} caractères). Il doit contenir au moins 32 caractères.`);
 }
 
-const rawDialect = (process.env.DB_DIALECT || 'mysql').toLowerCase();
+let dbUrlParsed: URL | null = null;
+if (process.env.DATABASE_URL) {
+  try {
+    dbUrlParsed = new URL(process.env.DATABASE_URL);
+  } catch {
+    errors.push('DATABASE_URL est une URL invalide.');
+  }
+}
+
+const rawDialect = (
+  process.env.DB_DIALECT ||
+  (dbUrlParsed ? (dbUrlParsed.protocol.startsWith('postgres') ? 'postgres' : 'mysql') : 'postgres')
+).toLowerCase();
+
 if (rawDialect !== 'mysql' && rawDialect !== 'postgres') {
   errors.push(`DB_DIALECT "${rawDialect}" n'est pas supporté. Utilisez "mysql" ou "postgres".`);
 }
 const DB_DIALECT: DbDialect = rawDialect === 'postgres' ? 'postgres' : 'mysql';
 
 const defaultPort = DB_DIALECT === 'postgres' ? 5432 : 3306;
-const defaultHost = isProduction ? '' : DB_DIALECT;
-const DB_HOST = process.env.DB_HOST || defaultHost;
-const DB_PORT = parseInt(process.env.DB_PORT || '', 10) || defaultPort;
-const DB_NAME = process.env.DB_NAME || (DB_DIALECT === 'postgres' ? 'adei_pg' : 'adei_db');
-const DB_USER = process.env.DB_USER || (DB_DIALECT === 'postgres' ? 'adei_pg_user' : 'adei_user');
-const DB_PASSWORD = process.env.DB_PASSWORD || '';
+const defaultHost = isProduction ? (dbUrlParsed ? dbUrlParsed.hostname : '') : DB_DIALECT;
+const DB_HOST = process.env.DB_HOST || (dbUrlParsed ? dbUrlParsed.hostname : defaultHost);
+const DB_PORT = parseInt(process.env.DB_PORT || (dbUrlParsed && dbUrlParsed.port ? dbUrlParsed.port : ''), 10) || defaultPort;
+const DB_NAME = process.env.DB_NAME || (dbUrlParsed ? dbUrlParsed.pathname.replace(/^\//, '') : (DB_DIALECT === 'postgres' ? 'adei_pg' : 'adei_db'));
+const DB_USER = process.env.DB_USER || (dbUrlParsed ? decodeURIComponent(dbUrlParsed.username) : (DB_DIALECT === 'postgres' ? 'adei_pg_user' : 'adei_user'));
+const DB_PASSWORD = process.env.DB_PASSWORD || (dbUrlParsed ? decodeURIComponent(dbUrlParsed.password) : '');
 
-if (!DB_HOST) errors.push('DB_HOST est obligatoire.');
-if (!DB_NAME) errors.push('DB_NAME est obligatoire.');
-if (!DB_USER) errors.push('DB_USER est obligatoire.');
-if (isProduction && !DB_PASSWORD) {
-  errors.push('DB_PASSWORD est obligatoire en production.');
+if (!process.env.DATABASE_URL) {
+  if (!DB_HOST) errors.push('DB_HOST est obligatoire.');
+  if (!DB_NAME) errors.push('DB_NAME est obligatoire.');
+  if (!DB_USER) errors.push('DB_USER est obligatoire.');
+  if (isProduction && !DB_PASSWORD) {
+    errors.push('DB_PASSWORD est obligatoire en production.');
+  }
 }
 
 let CORS_ORIGINS: string[] = [];

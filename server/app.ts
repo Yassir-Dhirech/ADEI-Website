@@ -31,7 +31,15 @@ app.use(cors({
     if (env.isDevelopment && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
       return callback(null, true);
     }
-    if (env.CORS_ORIGINS.includes(origin)) {
+    const isAllowed = env.CORS_ORIGINS.some((allowedOrigin) => {
+      if (allowedOrigin === origin) return true;
+      if (allowedOrigin.includes('*')) {
+        const regex = new RegExp('^' + allowedOrigin.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$');
+        return regex.test(origin);
+      }
+      return false;
+    });
+    if (isAllowed) {
       return callback(null, true);
     }
     console.warn(`[CORS] Blocked request from unauthorized origin: ${origin}`);
