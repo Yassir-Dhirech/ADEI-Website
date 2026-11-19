@@ -1,4 +1,5 @@
 import { Sequelize } from 'sequelize';
+import pg from 'pg';
 import env from './env';
 
 const isSslEnabled =
@@ -12,11 +13,12 @@ const dialectOptions =
 
 const sequelize = process.env.DATABASE_URL
   ? new Sequelize(process.env.DATABASE_URL, {
-      dialect: (env.DB.dialect || 'postgres') as 'postgres' | 'mysql',
+      dialect: 'postgres',
+      dialectModule: pg,
       logging: false,
       dialectOptions,
       pool: {
-        max: 5,
+        max: 2,
         min: 0,
         acquire: 30000,
         idle: 10000
@@ -29,6 +31,7 @@ const sequelize = process.env.DATABASE_URL
     })
   : new Sequelize({
       dialect: env.DB.dialect,
+      dialectModule: env.DB.dialect === 'postgres' ? pg : undefined,
       host: env.DB.host,
       port: env.DB.port,
       database: env.DB.name,
