@@ -1,3 +1,0 @@
-# Pas de redirections nécessaires - Pages HTML de redirection utilisées
-/static/*  /static/:splat  200
-/images/*  /images/:splat  200
