@@ -56,7 +56,15 @@ docker compose exec api npm run seed:demo
 docker compose exec api npm run seed:clear
 ```
 
-### 6. Restore a MySQL Dump from `./backups`
+### 6. Automated Database Backup (PostgreSQL)
+Create an encrypted, timestamped SQL backup into `./backups/` and purge backups older than 30 days:
+
+```bash
+docker compose exec api npm run db:backup
+```
+*(Or directly via postgres: `docker compose exec postgres pg_dump -U adei_pg_user -d adei_pg > backups/manual_backup.sql`)*
+
+### 7. Restore a MySQL Dump from `./backups` (Legacy / Rollback)
 1. Place your `.sql` backup file inside the `./backups/` directory (for example `backups/adei_backup.sql`). It is automatically mounted inside the MySQL container at `/backups/`.
 2. Run the restore command using the credentials from your `.env`:
 
@@ -72,7 +80,7 @@ Get-Content .\backups\adei_backup.sql -Raw | docker compose exec -T mysql mysql 
 
 *(Alternatively, run directly inside the container using the `/backups` mount: `docker compose exec mysql sh -c 'mysql -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" < /backups/adei_backup.sql'`)*
 
-### 7. Running Automated Tests (Jest + Supertest)
+### 8. Running Automated Tests (Jest + Supertest)
 Tests run against a dedicated isolated PostgreSQL database (`adei_test`) protected by a safety guard so development data (`adei_pg`) is never touched.
 
 1. Create the test database once (first-time setup):
@@ -85,7 +93,14 @@ docker compose exec postgres psql -U adei_pg_user -d adei_pg -c "CREATE DATABASE
 docker compose exec api npm test
 ```
 
-### 8. Local Service URLs
+### 9. Production Deployment & CI/CD
+
+- **GitHub Actions (`.github/workflows/ci.yml`):** Automatically triggers on push and pull requests to run TypeScript checks (`tsc`), execute database migrations on a clean PostgreSQL 16 container, run all 26 Jest smoke tests, and compile the Vite frontend production bundle.
+- **SPA Routing (`frontend-v2/vercel.json`):** Configured with catch-all rewrites (`/(.*) -> /index.html`) to prevent 404 errors on deep links and browser refreshes in production.
+- **Cloud Object Storage (`server/services/storage.service.ts`):** Supports local disk storage in development (`STORAGE_PROVIDER=local`) and automatic cloud object storage via Cloudinary or S3/R2 in production (`STORAGE_PROVIDER=cloudinary` with `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`).
+- **Managed PostgreSQL:** Supports direct connection strings (`DATABASE_URL=postgres://...`) and TLS/SSL enforcement (`DB_SSL=true`) for Neon, Supabase, Railway, or AWS RDS.
+
+### 10. Local Service URLs
 
 | Service | URL / Connection | Notes |
 | :--- | :--- | :--- |
