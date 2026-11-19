@@ -1,7 +1,11 @@
 import type { ApiResponse } from '@/types/api';
 
-export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+// En dev : 'http://localhost:5001' | En prod Vercel (rewrite) : '' (relatif)
+export const API_BASE = import.meta.env.VITE_API_URL !== undefined 
+  ? import.meta.env.VITE_API_URL 
+  : (import.meta.env.DEV ? 'http://localhost:5001' : '');
 
+  
 export function getImageUrl(path?: string | null): string {
   if (!path) return '/images/default.jpg';
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
