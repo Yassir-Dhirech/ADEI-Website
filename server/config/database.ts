@@ -1,4 +1,5 @@
 import { Sequelize } from 'sequelize';
+// @ts-ignore
 import pg from 'pg';
 import env from './env';
 
