@@ -24,7 +24,7 @@ User.hasMany(FeedbackLike, { foreignKey: 'userId', as: 'feedbackLikes' });
 // Club Memberships (Presidents, Managers, Members by Academic Year)
 User.hasMany(ClubMember, { foreignKey: 'userId', as: 'clubMemberships' });
 ClubMember.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-Club.hasMany(ClubMember, { foreignKey: 'clubId', as: 'members' });
+Club.hasMany(ClubMember, { foreignKey: 'clubId', as: 'clubMembers' });
 ClubMember.belongsTo(Club, { foreignKey: 'clubId', as: 'club' });
 User.belongsToMany(Club, { through: ClubMember, foreignKey: 'userId', otherKey: 'clubId', as: 'clubs' });
 Club.belongsToMany(User, { through: ClubMember, foreignKey: 'clubId', otherKey: 'userId', as: 'users' });
