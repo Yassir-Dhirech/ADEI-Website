@@ -1,6 +1,8 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/database';
 
+export type EventStatus = 'draft' | 'pending' | 'approved' | 'rejected';
+
 export class Event extends Model {
   declare id: number;
   declare title: string;
@@ -15,6 +17,11 @@ export class Event extends Model {
   declare document: string | null;
   declare link: string | null;
   declare order_display: number;
+  declare status: EventStatus;
+  declare submittedBy: number | null;
+  declare reviewedBy: number | null;
+  declare reviewedAt: Date | null;
+  declare rejectionReason: string | null;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 }
@@ -32,7 +39,30 @@ Event.init({
   image: { type: DataTypes.STRING(500), allowNull: true },
   document: { type: DataTypes.STRING(500), allowNull: true },
   link: { type: DataTypes.STRING(500), allowNull: true },
-  order_display: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 }
+  order_display: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  status: {
+    type: DataTypes.ENUM('draft', 'pending', 'approved', 'rejected'),
+    allowNull: false,
+    defaultValue: 'approved'
+  },
+  submittedBy: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: { model: 'users', key: 'id' }
+  },
+  reviewedBy: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: { model: 'users', key: 'id' }
+  },
+  reviewedAt: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  rejectionReason: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  }
 }, {
   sequelize,
   tableName: 'events',

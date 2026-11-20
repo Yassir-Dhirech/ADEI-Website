@@ -53,6 +53,7 @@ export async function listEvents(query: Record<string, unknown> = {}): Promise<{
   if (cached) return { ...cached, cached: true };
 
   const { rows, count } = await Event.findAndCountAll({
+    where: { status: 'approved' },
     order: [['order_display', 'ASC'], ['createdAt', 'DESC']],
     include: [{ model: Club, as: 'club', attributes: ['id', 'club', 'president'], required: false }],
     limit,

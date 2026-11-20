@@ -13,11 +13,33 @@ import AdeiRole from './AdeiRole';
 import Cycle from './Cycle';
 import AcademicYear from './AcademicYear';
 import Section from './Section';
+import ClubMember from './ClubMember';
+import EventRegistration from './EventRegistration';
 
 // Associations
 Feedback.hasMany(FeedbackLike, { foreignKey: 'feedbackId', as: 'likes' });
 FeedbackLike.belongsTo(Feedback, { foreignKey: 'feedbackId', as: 'feedback' });
 User.hasMany(FeedbackLike, { foreignKey: 'userId', as: 'feedbackLikes' });
+
+// Club Memberships (Presidents, Managers, Members by Academic Year)
+User.hasMany(ClubMember, { foreignKey: 'userId', as: 'clubMemberships' });
+ClubMember.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+Club.hasMany(ClubMember, { foreignKey: 'clubId', as: 'members' });
+ClubMember.belongsTo(Club, { foreignKey: 'clubId', as: 'club' });
+User.belongsToMany(Club, { through: ClubMember, foreignKey: 'userId', otherKey: 'clubId', as: 'clubs' });
+Club.belongsToMany(User, { through: ClubMember, foreignKey: 'clubId', otherKey: 'userId', as: 'users' });
+
+// Event Moderation Submitter & Reviewer
+Event.belongsTo(User, { foreignKey: 'submittedBy', as: 'submitter' });
+Event.belongsTo(User, { foreignKey: 'reviewedBy', as: 'reviewer' });
+
+// Event Registrations (RSVP)
+User.hasMany(EventRegistration, { foreignKey: 'userId', as: 'eventRegistrations' });
+EventRegistration.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+Event.hasMany(EventRegistration, { foreignKey: 'eventId', as: 'registrations' });
+EventRegistration.belongsTo(Event, { foreignKey: 'eventId', as: 'event' });
+User.belongsToMany(Event, { through: EventRegistration, foreignKey: 'userId', otherKey: 'eventId', as: 'registeredEvents' });
+Event.belongsToMany(User, { through: EventRegistration, foreignKey: 'eventId', otherKey: 'userId', as: 'attendees' });
 
 Event.hasMany(EventOrganizer, { foreignKey: 'eventId', as: 'organizers' });
 EventOrganizer.belongsTo(Event, { foreignKey: 'eventId', as: 'event' });
@@ -56,5 +78,7 @@ export {
   Cycle,
   AcademicYear,
   Section,
+  ClubMember,
+  EventRegistration,
   sequelize
 };

@@ -31,10 +31,11 @@ type UnifiedItem =
   | { kind: 'news'; sortDate: string; item: NewsItem }
   | { kind: 'event'; sortDate: string; item: EventItem };
 
-function formatDateBadge(dateStr: string) {
+function formatDateBadge(dateStr?: string | null) {
+  if (!dateStr) return { day: '—', month: '—' };
   const parsed = new Date(dateStr);
   if (Number.isNaN(parsed.getTime())) {
-    return { day: '—', month: dateStr.slice(0, 6) };
+    return { day: '—', month: String(dateStr).slice(0, 6) };
   }
   return {
     day: String(parsed.getDate()).padStart(2, '0'),
@@ -120,7 +121,7 @@ export function NewsPage() {
       }
     }
 
-    return list.sort((a, b) => b.sortDate.localeCompare(a.sortDate));
+    return list.sort((a, b) => (b.sortDate || '').localeCompare(a.sortDate || ''));
   }, [activeTab, allNews, allEvents, search, category]);
 
   const showSpotlight = !search.trim() && category === 'all' && feed.length > 1;

@@ -302,7 +302,15 @@ export function ResourceAdminPage({
                       type="file"
                       accept={f.accept}
                       className="hidden"
-                      onChange={(e) => setFiles({ ...files, [f.name]: e.target.files?.[0] ?? null })}
+                      onChange={(e) => {
+                        const selectedFile = e.target.files?.[0];
+                        if (selectedFile && selectedFile.size > 4 * 1024 * 1024) {
+                          alert(`Le fichier "${selectedFile.name}" dépasse 4 Mo (${(selectedFile.size / (1024 * 1024)).toFixed(1)} Mo). Veuillez choisir une image de moins de 4 Mo pour respecter la limite du serveur.`);
+                          e.target.value = '';
+                          return;
+                        }
+                        setFiles({ ...files, [f.name]: selectedFile ?? null });
+                      }}
                     />
                   </label>
                 </div>

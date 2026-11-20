@@ -24,6 +24,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/news" element={<NewsPage />} />
           <Route path="/events" element={<Navigate to="/news?tab=events" replace />} />
+          <Route path="/event" element={<Navigate to="/news?tab=events" replace />} />
           <Route path="/clubs" element={<ClubsPage />} />
           <Route path="/ensa" element={<EnsaPage />} />
           <Route path="/adei" element={<AdeiPage />} />
@@ -253,6 +254,7 @@ export default function App() {
               }
             />
             <Route path="feedbacks" element={<FeedbacksAdminPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Route>
       </Routes>
