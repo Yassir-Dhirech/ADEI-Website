@@ -66,7 +66,22 @@ export async function createFeedback(body: Record<string, unknown>, token?: stri
       // Token invalide ou utilisateur introuvable : feedback anonyme autorisé
     }
   }
-  return Feedback.create(data);
+  try {
+    return await Feedback.create(data);
+  } catch (err: unknown) {
+    const errObj = err as { name?: string; parent?: { code?: string } };
+    if (errObj?.name === 'SequelizeUniqueConstraintError' || errObj?.parent?.code === '23505') {
+      try {
+        await Feedback.sequelize?.query(
+          "SELECT setval('feedbacks_id_seq', COALESCE((SELECT MAX(id) FROM feedbacks), 0) + 1, false);"
+        );
+        return await Feedback.create(data);
+      } catch {
+        // En cas d'échec du retry, relancer l'erreur initiale
+      }
+    }
+    throw err;
+  }
 }
 
 export async function markAsRead(id: string | number): Promise<Feedback | null> {
