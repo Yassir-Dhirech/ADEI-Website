@@ -23,8 +23,10 @@ export const create = async (req: Request, res: Response) => {
     const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
     const feedback = await feedbacksService.createFeedback(req.body, cookieToken || headerToken);
     return sendSuccess(res, feedback, { status: 201, message: 'Votre feedback a été envoyé avec succès!' });
-  } catch {
-    return sendError(res, 500, 'SERVER_ERROR', "Erreur lors de l'envoi du feedback");
+  } catch (error) {
+    console.error('[Feedbacks create error]:', error);
+    const msg = error instanceof Error ? error.message : "Erreur lors de l'envoi du feedback";
+    return sendError(res, 500, 'SERVER_ERROR', `Erreur lors de l'envoi du feedback: ${msg}`);
   }
 };
 

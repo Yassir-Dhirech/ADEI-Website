@@ -55,9 +55,15 @@ export async function createFeedback(body: Record<string, unknown>, token?: stri
   if (token) {
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as AuthUserPayload;
-      data.userId = decoded.id || decoded.userId;
+      const targetUserId = decoded.id || decoded.userId;
+      if (targetUserId) {
+        const userExists = await User.findByPk(targetUserId, { attributes: ['id'] });
+        if (userExists) {
+          data.userId = targetUserId;
+        }
+      }
     } catch {
-      // Token invalide : feedback anonyme autorisé
+      // Token invalide ou utilisateur introuvable : feedback anonyme autorisé
     }
   }
   return Feedback.create(data);
