@@ -17,8 +17,19 @@ import newsRoutes from './routes/news.routes';
 import eventsRoutes from './routes/events.routes';
 import adeiRolesRoutes from './routes/adeiRoles.routes';
 import academicRoutes from './routes/academic.routes';
+import sequelize from './config/database';
 
 const app = express();
+
+// Auto-alignement idempotent des colonnes critiques en production (tolérant aux imports SQL bruts)
+if (env.isProduction || process.env.DATABASE_URL) {
+  sequelize.query(`
+    ALTER TABLE IF EXISTS feedbacks ADD COLUMN IF NOT EXISTS "isPublished" BOOLEAN DEFAULT false NOT NULL;
+    ALTER TABLE IF EXISTS feedbacks ADD COLUMN IF NOT EXISTS "userId" INTEGER REFERENCES users(id) ON DELETE SET NULL;
+  `).catch((err: unknown) => {
+    console.warn('[DB Auto-heal warning]:', err instanceof Error ? err.message : err);
+  });
+}
 
 if (process.env.TRUST_PROXY) {
   const hops = parseInt(process.env.TRUST_PROXY, 10);

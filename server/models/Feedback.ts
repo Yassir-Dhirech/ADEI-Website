@@ -21,7 +21,7 @@ Feedback.init({
   type: { type: DataTypes.ENUM('avis', 'recommandation', 'autre'), allowNull: false },
   message: { type: DataTypes.TEXT, allowNull: false },
   read: { type: DataTypes.BOOLEAN, defaultValue: false },
-  isPublished: { type: DataTypes.BOOLEAN, defaultValue: false, allowNull: false, field: 'ispublished' },
+  isPublished: { type: DataTypes.BOOLEAN, defaultValue: false, allowNull: false },
   userId: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'users', key: 'id' } }
 }, {
   sequelize,
