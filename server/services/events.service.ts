@@ -52,17 +52,29 @@ export async function listEvents(query: Record<string, unknown> = {}): Promise<{
   const cached = getCachedData<{ data: Event[]; meta: PaginationMeta }>(cacheKey);
   if (cached) return { ...cached, cached: true };
 
-  const { rows, count } = await Event.findAndCountAll({
-    where: { status: 'approved' },
-    order: [['order_display', 'ASC'], ['createdAt', 'DESC']],
-    include: [{ model: Club, as: 'club', attributes: ['id', 'club', 'president'], required: false }],
-    limit,
-    offset
-  });
+  try {
+    const { rows, count } = await Event.findAndCountAll({
+      where: { status: 'approved' },
+      order: [['order_display', 'ASC'], ['createdAt', 'DESC']],
+      include: [{ model: Club, as: 'club', attributes: ['id', 'club', 'president'], required: false }],
+      limit,
+      offset
+    });
 
-  const result = { data: rows, meta: buildPaginationMeta(count, page, limit) };
-  setCachedData(cacheKey, result);
-  return { ...result, cached: false };
+    const result = { data: rows, meta: buildPaginationMeta(count, page, limit) };
+    setCachedData(cacheKey, result);
+    return { ...result, cached: false };
+  } catch (err) {
+    console.warn('[listEvents] Status fallback:', err instanceof Error ? err.message : err);
+    const { rows, count } = await Event.findAndCountAll({
+      order: [['order_display', 'ASC'], ['createdAt', 'DESC']],
+      include: [{ model: Club, as: 'club', attributes: ['id', 'club', 'president'], required: false }],
+      limit,
+      offset
+    });
+    const result = { data: rows, meta: buildPaginationMeta(count, page, limit) };
+    return { ...result, cached: false };
+  }
 }
 
 export async function createEvent(body: Record<string, unknown>, files: UploadedFields): Promise<Event> {

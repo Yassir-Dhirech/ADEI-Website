@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import {
+import {Clock,
   ArrowRight,
   Calendar,
   MapPin,
@@ -215,7 +215,7 @@ export function HomePage() {
                     <div>
                       <h3 className="font-bold">{ev.title}</h3>
                       <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
-                        <span>⏰ {ev.time}</span>
+                        <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3 text-red-600" /> {ev.time}</span>
                         <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3 text-red-600" /> {ev.location}</span>
                       </p>
                     </div>
@@ -304,8 +304,8 @@ export function HomePage() {
             {selectedEvent.image && <img src={getImageUrl(selectedEvent.image)} alt={selectedEvent.title} className="max-h-72 w-full rounded-xl object-cover" />}
             <div className="flex flex-wrap gap-3 text-xs text-zinc-500">
               <Badge>{selectedEvent.date}</Badge>
-              <span>⏰ {selectedEvent.time}</span>
-              <span>📍 {selectedEvent.location}</span>
+              <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-red-600" /> {selectedEvent.time}</span>
+              <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-red-600" /> {selectedEvent.location}</span>
             </div>
             <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">{selectedEvent.description}</p>
             {selectedEvent.link && (

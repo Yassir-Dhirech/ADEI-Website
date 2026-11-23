@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Heart, Send, MessageSquareHeart, Lightbulb, Sparkles, ShieldCheck, Loader2 } from 'lucide-react';
@@ -38,6 +38,16 @@ export function FeedbacksPage() {
     type: 'avis',
     message: ''
   });
+
+  useEffect(() => {
+    if (user) {
+      setForm((prev) => ({
+        ...prev,
+        name: user.username,
+        email: user.email
+      }));
+    }
+  }, [user]);
   const [filter, setFilter] = useState<string>('all');
   const [likesMap, setLikesMap] = useState<Record<number, { liked: boolean; count: number }>>({});
 
@@ -129,26 +139,34 @@ export function FeedbacksPage() {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="fb-name">Nom</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="fb-name">Nom</Label>
+                    {user && <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Compte vérifié</span>}
+                  </div>
                   <Input
                     id="fb-name"
                     required
+                    readOnly={Boolean(user)}
                     placeholder="Ex: Youssef A."
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="h-10 rounded-xl"
+                    className={`h-10 rounded-xl ${user ? 'cursor-not-allowed bg-zinc-100 text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-400' : ''}`}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="fb-email">Email</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="fb-email">Email</Label>
+                    {user && <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Verrouillé</span>}
+                  </div>
                   <Input
                     id="fb-email"
                     required
                     type="email"
+                    readOnly={Boolean(user)}
                     placeholder="prenom@usmba.ac.ma"
                     value={form.email}
                     onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    className="h-10 rounded-xl"
+                    className={`h-10 rounded-xl ${user ? 'cursor-not-allowed bg-zinc-100 text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-400' : ''}`}
                   />
                 </div>
               </div>
@@ -301,3 +319,4 @@ export function FeedbacksPage() {
     </div>
   );
 }
+

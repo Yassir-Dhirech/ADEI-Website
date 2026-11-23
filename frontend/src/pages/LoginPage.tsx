@@ -167,6 +167,16 @@ export function LoginPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              <div className="flex justify-end">
+  <a
+    href="https://wa.me/212629549292?text=Bonjour%20ADEI,%20j'ai%20oublié%20mon%20mot%20de%20passe%20sur%20le%20site"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-xs font-medium text-red-600 hover:underline dark:text-red-400"
+  >
+    Mot de passe oublié ? Contacter l'ADEI
+  </a>
+</div>
             </div>
 
             {error && (
