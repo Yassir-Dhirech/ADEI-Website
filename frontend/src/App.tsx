@@ -9,6 +9,7 @@ import { EnsaPage } from '@/pages/EnsaPage';
 import { AdeiPage } from '@/pages/AdeiPage';
 import { FeedbacksPage } from '@/pages/FeedbacksPage';
 import { LoginPage } from '@/pages/LoginPage';
+import { RegisterPage } from '@/pages/RegisterPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { AdminLayout } from '@/pages/admin/AdminLayout';
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage';
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/adei" element={<AdeiPage />} />
           <Route path="/feedbacks" element={<FeedbacksPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
           <Route
             path="/profile"
             element={
@@ -231,24 +233,70 @@ export default function App() {
               path="users"
               element={
                 <ResourceAdminPage
-                  title="Utilisateurs"
+                  title="Utilisateurs & Demandes d'inscription"
                   endpoint="/users"
                   queryKey="users"
                   titleField="username"
                   subtitleField="email"
-                  badgeField="role"
+                  badgeField="status"
                   fields={[
-                    { name: 'username', label: "Nom d'utilisateur", required: true },
+                    { name: 'username', label: "Nom d'utilisateur / Nom complet", required: true },
                     { name: 'email', label: 'Email', type: 'email', required: true },
                     {
+                      name: 'status',
+                      label: "Statut d'approbation",
+                      type: 'select',
+                      defaultValue: 'active',
+                      options: ['active', 'pending', 'rejected'],
+                      required: true
+                    },
+                    {
                       name: 'role',
-                      label: 'Rôle',
+                      label: 'Rôle Système',
                       type: 'select',
                       defaultValue: 'user',
                       options: ['user', 'admin'],
                       required: true
                     },
-                    { name: 'password', label: 'Mot de passe (8+)', type: 'password', required: true }
+                    {
+                      name: 'requested_role',
+                      label: "Rôle souhaité par l'étudiant",
+                      type: 'select',
+                      defaultValue: 'user',
+                      options: ['user', 'president', 'delegue']
+                    },
+                    { name: 'phone', label: 'Téléphone / WhatsApp' },
+                    { name: 'filiere', label: 'Filière' },
+                    { name: 'classe', label: 'Classe / Année' },
+                    {
+                      name: 'is_president',
+                      label: 'Est Président de Club ?',
+                      type: 'select',
+                      defaultValue: 'false',
+                      options: ['false', 'true']
+                    },
+                    {
+                      name: 'is_representant',
+                      label: 'Est Délégué de Classe ?',
+                      type: 'select',
+                      defaultValue: 'false',
+                      options: ['false', 'true']
+                    },
+                    {
+                      name: 'is_membre_adei',
+                      label: 'Est Membre ADEI ?',
+                      type: 'select',
+                      defaultValue: 'false',
+                      options: ['false', 'true']
+                    },
+                    {
+                      name: 'is_bureau_adei',
+                      label: 'Est Bureau ADEI ?',
+                      type: 'select',
+                      defaultValue: 'false',
+                      options: ['false', 'true']
+                    },
+                    { name: 'password', label: 'Mot de passe (8+ caractères, laisser vide si inchangé)', type: 'password' }
                   ]}
                 />
               }

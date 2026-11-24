@@ -9,6 +9,25 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Mot de passe requis')
 });
 
+export const sendOtpSchema = z.object({
+  email: z.string().trim().email('Adresse email invalide')
+});
+
+export const registerSchema = z.object({
+  username: z.string().trim().min(2, "Nom d'utilisateur requis (min 2)").max(50),
+  email: z.string().trim().email('Email invalide'),
+  password: z
+    .string()
+    .min(8, 'Le mot de passe doit contenir au moins 8 caractères')
+    .regex(/[A-Z]/, 'Le mot de passe doit contenir au moins une lettre majuscule')
+    .regex(/[0-9]/, 'Le mot de passe doit contenir au moins un chiffre'),
+  phone: z.string().trim().min(8, 'Numéro de téléphone requis (min 8 caractères)'),
+  filiere: z.string().trim().min(2, 'Filière requise'),
+  classe: z.string().trim().min(2, 'Classe requise'),
+  requested_role: z.enum(['user', 'president', 'delegue', 'alumni']),
+  otp: z.string().trim().min(4, 'Code OTP requis (au moins 4 chiffres)')
+});
+
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Mot de passe actuel requis'),
   newPassword: z.string().min(8, 'Le nouveau mot de passe doit contenir au moins 8 caractères')
@@ -19,10 +38,15 @@ export const createUserSchema = z.object({
   email: z.string().trim().email('Email invalide'),
   password: z.string().min(8, 'Le mot de passe doit contenir au moins 8 caractères'),
   role: z.enum(['user', 'admin']).optional(),
-  is_president: z.boolean().optional(),
-  is_representant: z.boolean().optional(),
-  is_membre_adei: z.boolean().optional(),
-  is_bureau_adei: z.boolean().optional()
+  status: z.enum(['pending', 'active', 'rejected']).optional(),
+  phone: optionalStr,
+  filiere: optionalStr,
+  classe: optionalStr,
+  requested_role: z.enum(['user', 'president', 'delegue', 'alumni']).optional(),
+  is_president: z.coerce.boolean().optional(),
+  is_representant: z.coerce.boolean().optional(),
+  is_membre_adei: z.coerce.boolean().optional(),
+  is_bureau_adei: z.coerce.boolean().optional()
 });
 
 export const updateUserSchema = createUserSchema.partial().extend({
@@ -126,6 +150,7 @@ export const adeiRoleUpdateSchema = adeiRoleCreateSchema.partial();
 
 // Types TypeScript dérivés directement des schémas Zod (Single Source of Truth)
 export type LoginInput = z.infer<typeof loginSchema>;
+export type RegisterInput = z.infer<typeof registerSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;

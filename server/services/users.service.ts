@@ -32,7 +32,21 @@ export async function listUsers(): Promise<User[]> {
 }
 
 export async function createUser(body: CreateUserInput) {
-  const { username, email, password, role, is_president, is_representant, is_membre_adei, is_bureau_adei } = body;
+  const {
+    username,
+    email,
+    password,
+    role,
+    status,
+    phone,
+    filiere,
+    classe,
+    requested_role,
+    is_president,
+    is_representant,
+    is_membre_adei,
+    is_bureau_adei
+  } = body;
 
   const existing = await User.findOne({ where: { [Op.or]: [{ username }, { email }] } });
   if (existing) return { conflict: true as const };
@@ -43,6 +57,11 @@ export async function createUser(body: CreateUserInput) {
     email,
     password: hashedPassword,
     role: role === 'admin' ? 'admin' : 'user',
+    status: status || 'active',
+    phone: phone || null,
+    filiere: filiere || null,
+    classe: classe || null,
+    requested_role: requested_role || 'user',
     is_president: Boolean(is_president),
     is_representant: Boolean(is_representant),
     is_membre_adei: Boolean(is_membre_adei),
@@ -55,12 +74,31 @@ export async function createUser(body: CreateUserInput) {
 }
 
 export async function updateUser(id: string | number, body: UpdateUserInput): Promise<User | null> {
-  const { username, email, password, role, is_president, is_representant, is_membre_adei, is_bureau_adei } = body;
+  const {
+    username,
+    email,
+    password,
+    role,
+    status,
+    phone,
+    filiere,
+    classe,
+    requested_role,
+    is_president,
+    is_representant,
+    is_membre_adei,
+    is_bureau_adei
+  } = body;
   const updateData: Record<string, unknown> = {};
 
   if (username !== undefined) updateData.username = username;
   if (email !== undefined) updateData.email = email;
   if (role === 'user' || role === 'admin') updateData.role = role;
+  if (status && ['pending', 'active', 'rejected'].includes(status)) updateData.status = status;
+  if (phone !== undefined) updateData.phone = phone;
+  if (filiere !== undefined) updateData.filiere = filiere;
+  if (classe !== undefined) updateData.classe = classe;
+  if (requested_role !== undefined) updateData.requested_role = requested_role;
   if (typeof is_president === 'boolean') updateData.is_president = is_president;
   if (typeof is_representant === 'boolean') updateData.is_representant = is_representant;
   if (typeof is_membre_adei === 'boolean') updateData.is_membre_adei = is_membre_adei;

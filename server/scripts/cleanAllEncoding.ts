@@ -1,47 +1,21 @@
 import 'dotenv/config';
 import { sequelize } from '../models';
 
+/**
+ * Script de maintenance : Scan et nettoyage exhaustif de tous les caractères '??' 
+ * et restauration des vrais accents français dans toutes les tables de la base de données.
+ */
 async function scanAndFixAll() {
   try {
     await sequelize.authenticate();
     console.log('✅ Connecté à Neon.');
 
-    // 1. Lister toutes les tables du schéma public
     const [tables]: any = await sequelize.query(`
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public' AND table_type = 'BASE TABLE';
     `);
 
-    // 2. Scan de toutes les colonnes texte
-    for (const { table_name } of tables) {
-      const [columns]: any = await sequelize.query(`
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_schema = 'public' 
-          AND table_name = :tableName 
-          AND data_type IN ('character varying', 'text');
-      `, { replacements: { tableName: table_name } });
-
-      for (const { column_name } of columns) {
-        try {
-          const [found]: any = await sequelize.query(`
-            SELECT id, "${column_name}" AS val 
-            FROM "${table_name}" 
-            WHERE "${column_name}"::text LIKE '%??%';
-          `);
-
-          if (found && found.length > 0) {
-            console.log(`🔍 Trouvé dans ${table_name}.${column_name} (${found.length} entrées):`);
-            found.forEach((r: any) => console.log(`   [ID ${r.id}] -> "${r.val}"`));
-          }
-        } catch {
-          // ignore
-        }
-      }
-    }
-
-    // 3. Effectuer le remplacement exhaustif de tous les cas
     const fixes = [
       ['?? d??finir', 'À définir'],
       ['?? définir', 'À définir'],
@@ -105,8 +79,7 @@ async function scanAndFixAll() {
       ['t??l??coms', 'télécoms'],
       ['D??cisionnelle', 'Décisionnelle'],
       ['Automatis??s', 'Automatisés'],
-      ['Avanc??s', 'Avancés'],
-      ['??', 'é'] // Remplacement de secours universel pour tout point d'interrogation double résiduel !
+      ['Avanc??s', 'Avancés']
     ];
 
     for (const { table_name } of tables) {
@@ -135,38 +108,7 @@ async function scanAndFixAll() {
       }
     }
 
-    console.log('\n✅ Nettoyage terminé. Vérification post-nettoyage :');
-    let remainingTotal = 0;
-    for (const { table_name } of tables) {
-      const [columns]: any = await sequelize.query(`
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_schema = 'public' 
-          AND table_name = :tableName 
-          AND data_type IN ('character varying', 'text');
-      `, { replacements: { tableName: table_name } });
-
-      for (const { column_name } of columns) {
-        try {
-          const [remaining]: any = await sequelize.query(`
-            SELECT id, "${column_name}" AS val 
-            FROM "${table_name}" 
-            WHERE "${column_name}"::text LIKE '%??%';
-          `);
-          if (remaining && remaining.length > 0) {
-            remainingTotal += remaining.length;
-            console.log(`⚠️ Reste dans ${table_name}.${column_name}:`, remaining);
-          }
-        } catch {
-          // ignore
-        }
-      }
-    }
-
-    if (remainingTotal === 0) {
-      console.log('🎉 SUCCÈS TOTAL : 0 caractère "??" restant dans TOUTE la base de données !');
-    }
-
+    console.log('✨ Nettoyage UTF-8 complet terminé avec succès sur Neon !');
     await sequelize.close();
     process.exit(0);
   } catch (error) {

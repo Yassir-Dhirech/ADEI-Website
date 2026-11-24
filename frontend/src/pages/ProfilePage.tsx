@@ -94,6 +94,50 @@ export function ProfilePage() {
             )}
           </div>
         </div>
+
+        {(user.filiere || user.classe || user.phone) && (
+          <>
+            <Separator />
+            <div className="space-y-2 text-xs">
+              <p className="font-bold uppercase tracking-wider text-zinc-400">Parcours Académique</p>
+              {user.filiere && (
+                <div className="flex justify-between text-zinc-600 dark:text-zinc-300">
+                  <span className="text-zinc-400">Filière :</span>
+                  <span className="font-semibold">{user.filiere}</span>
+                </div>
+              )}
+              {user.classe && (
+                <div className="flex justify-between text-zinc-600 dark:text-zinc-300">
+                  <span className="text-zinc-400">Classe / Année :</span>
+                  <span className="font-semibold">{user.classe}</span>
+                </div>
+              )}
+              {user.phone && (
+                <div className="flex justify-between text-zinc-600 dark:text-zinc-300">
+                  <span className="text-zinc-400">Téléphone :</span>
+                  <span className="font-semibold">{user.phone}</span>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        <Separator />
+
+        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-950">
+          <p className="text-xs font-semibold">Besoin d&apos;aide ou mot de passe oublié ?</p>
+          <p className="mt-1 text-[11px] text-zinc-500">
+            Contactez un administrateur du bureau de l&apos;ADEI directement sur WhatsApp.
+          </p>
+          <a
+            href="https://wa.me/212629549292?text=Bonjour%20ADEI,%20j'ai%20besoin%20d'aide%20concernant%20mon%20compte%20sur%20le%20site"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-red-600 hover:underline dark:text-red-400"
+          >
+            Contacter l&apos;ADEI sur WhatsApp →
+          </a>
+        </div>
       </div>
 
       {/* Right Security Card */}

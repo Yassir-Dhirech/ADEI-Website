@@ -71,7 +71,15 @@ export function ResourceAdminPage({
   };
 
   const buildBody = () => {
-    if (!multipart) return JSON.stringify(form);
+    if (!multipart) {
+      const processed: Record<string, unknown> = {};
+      Object.entries(form).forEach(([k, v]) => {
+        if (v === 'true') processed[k] = true;
+        else if (v === 'false') processed[k] = false;
+        else processed[k] = v;
+      });
+      return JSON.stringify(processed);
+    }
     const fd = new FormData();
     Object.entries(form).forEach(([k, v]) => {
       if (v !== undefined && v !== '') fd.append(k, v);
@@ -221,7 +229,19 @@ export function ResourceAdminPage({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate font-semibold">{String(item[titleField] ?? `#${id}`)}</p>
-                      {badgeField && item[badgeField] ? (
+                      {item.status ? (
+                        <Badge
+                          className={`text-[11px] ${
+                            item.status === 'active'
+                              ? 'bg-emerald-600 text-white'
+                              : item.status === 'pending'
+                              ? 'bg-amber-500 text-white'
+                              : 'bg-red-600 text-white'
+                          }`}
+                        >
+                          {item.status === 'active' ? 'Actif' : item.status === 'pending' ? 'En attente' : 'Refusé'}
+                        </Badge>
+                      ) : badgeField && item[badgeField] ? (
                         <Badge variant="secondary" className="text-[11px]">
                           {String(item[badgeField])}
                         </Badge>
@@ -230,10 +250,58 @@ export function ResourceAdminPage({
                     {subtitleField && (
                       <p className="truncate text-xs text-zinc-500">{String(item[subtitleField] ?? '')}</p>
                     )}
+                    {Boolean(item.filiere || item.requested_role) && (
+                      <p className="truncate text-[11px] text-zinc-400">
+                        {item.filiere ? `${String(item.filiere)} (${String(item.classe || '')})` : ''}
+                        {item.phone ? ` · Tél: ${String(item.phone)}` : ''}
+                        {item.requested_role ? ` · Rôle: ${String(item.requested_role)}` : ''}
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1.5">
+                  {item.status === 'pending' && (
+                    <div className="mr-2 flex items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        className="h-8 bg-emerald-600 px-2.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                        onClick={async () => {
+                          try {
+                            await apiRequest(`${endpoint}/${id}`, {
+                              method: 'PUT',
+                              body: JSON.stringify({ status: 'active' })
+                            });
+                            toast.success(`Compte ${String(item[titleField] || '')} approuvé avec succès !`);
+                            invalidate();
+                          } catch {
+                            toast.error("Erreur lors de l'approbation");
+                          }
+                        }}
+                      >
+                        Approuver
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 border-red-300 px-2.5 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                        onClick={async () => {
+                          try {
+                            await apiRequest(`${endpoint}/${id}`, {
+                              method: 'PUT',
+                              body: JSON.stringify({ status: 'rejected' })
+                            });
+                            toast.success(`Demande de ${String(item[titleField] || '')} rejetée`);
+                            invalidate();
+                          } catch {
+                            toast.error('Erreur lors du rejet');
+                          }
+                        }}
+                      >
+                        Refuser
+                      </Button>
+                    </div>
+                  )}
                   {canReorder && (
                     <>
                       <Button

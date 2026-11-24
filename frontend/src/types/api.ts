@@ -18,10 +18,17 @@ export interface User {
   username: string;
   email: string;
   role: 'user' | 'admin';
+  status?: 'pending' | 'active' | 'rejected';
+  phone?: string | null;
+  filiere?: string | null;
+  classe?: string | null;
+  requested_role?: 'user' | 'president' | 'delegue' | 'alumni';
   is_president?: boolean;
   is_representant?: boolean;
   is_membre_adei?: boolean;
   is_bureau_adei?: boolean;
+  lastPasswordChange?: string | null;
+  createdAt?: string;
 }
 
 export interface NewsItem {

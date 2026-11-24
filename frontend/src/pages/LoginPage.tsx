@@ -206,6 +206,13 @@ export function LoginPage() {
             </Button>
           </form>
 
+          <div className="mt-4 text-center text-xs text-zinc-500">
+            Pas encore de compte étudiant ?{' '}
+            <Link to="/register" className="font-bold text-red-600 hover:underline dark:text-red-400">
+              Créer un compte
+            </Link>
+          </div>
+
           <Separator className="my-6" />
 
           <div className="flex items-center justify-between text-xs text-zinc-500">

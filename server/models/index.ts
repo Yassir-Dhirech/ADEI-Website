@@ -15,6 +15,7 @@ import AcademicYear from './AcademicYear';
 import Section from './Section';
 import ClubMember from './ClubMember';
 import EventRegistration from './EventRegistration';
+import Otp from './Otp';
 
 // Associations
 Feedback.hasMany(FeedbackLike, { foreignKey: 'feedbackId', as: 'likes' });
@@ -80,5 +81,6 @@ export {
   Section,
   ClubMember,
   EventRegistration,
+  Otp,
   sequelize
 };
