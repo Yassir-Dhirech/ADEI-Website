@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Calendar,
   CalendarDays,
+  CalendarPlus,
   Clock,
   MapPin,
   Sparkles,
@@ -43,13 +44,33 @@ function formatDateBadge(dateStr?: string | null) {
   };
 }
 
+function getGoogleCalendarUrl(ev: EventItem): string {
+  const [hours, minutes] = (ev.time || '10:00').split(':').map((s) => s.padStart(2, '0'));
+  const d = new Date(ev.date);
+  if (isNaN(d.getTime())) return '#';
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+
+  const startStr = `${year}${month}${day}T${hours || '10'}${minutes || '00'}00`;
+  const endHours = String(Math.min(23, Number(hours || 10) + 2)).padStart(2, '0');
+  const endStr = `${year}${month}${day}T${endHours}${minutes || '00'}00`;
+
+  const title = encodeURIComponent(`[ADEI ENSA Fès] ${ev.title}`);
+  const details = encodeURIComponent(`${ev.description}\n\nOrganisateur: ${ev.organizer || 'ADEI ENSA Fès'}`);
+  const location = encodeURIComponent(ev.location || 'ENSA Fès');
+
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startStr}/${endStr}&details=${details}&location=${location}`;
+}
+
 export function NewsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const rawTab = searchParams.get('tab');
   const activeTab: FeedTab = rawTab === 'news' || rawTab === 'events' ? rawTab : 'all';
 
   const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('all');
+  const [timeFilter, setTimeFilter] = useState<'all' | 'upcoming' | 'past'>('all');
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
 
@@ -68,7 +89,7 @@ export function NewsPage() {
   const isLoading = newsQuery.isLoading || eventsQuery.isLoading;
 
   const setTab = (next: FeedTab) => {
-    setCategory('all');
+    setTimeFilter('all');
     if (next === 'all') {
       setSearchParams({});
     } else {
@@ -76,32 +97,26 @@ export function NewsPage() {
     }
   };
 
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    if (activeTab !== 'events') {
-      allNews.forEach((n) => {
-        if (n.category?.trim()) set.add(n.category.trim());
-      });
-    }
-    if (activeTab !== 'news') {
-      allEvents.forEach((e) => {
-        if (e.category?.trim()) set.add(e.category.trim());
-      });
-    }
-    return ['all', ...Array.from(set)];
-  }, [allNews, allEvents, activeTab]);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
 
   const feed = useMemo<UnifiedItem[]>(() => {
     const q = search.trim().toLowerCase();
     const list: UnifiedItem[] = [];
+
+    const matchesTime = (dateStr?: string | null) => {
+      if (timeFilter === 'all' || !dateStr) return true;
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return true;
+      return timeFilter === 'upcoming' ? d >= now : d < now;
+    };
 
     if (activeTab === 'all' || activeTab === 'news') {
       for (const n of allNews) {
         const matchesSearch =
           !q ||
           `${n.title} ${n.content} ${n.category ?? ''} ${n.organizer ?? ''}`.toLowerCase().includes(q);
-        const matchesCat = category === 'all' || (n.category?.trim() ?? '') === category;
-        if (matchesSearch && matchesCat) {
+        if (matchesSearch && matchesTime(n.date)) {
           list.push({ kind: 'news', sortDate: n.date, item: n });
         }
       }
@@ -114,17 +129,21 @@ export function NewsPage() {
           `${e.title} ${e.description} ${e.location} ${e.category ?? ''} ${e.organizer ?? ''}`
             .toLowerCase()
             .includes(q);
-        const matchesCat = category === 'all' || (e.category?.trim() ?? '') === category;
-        if (matchesSearch && matchesCat) {
+        if (matchesSearch && matchesTime(e.date)) {
           list.push({ kind: 'event', sortDate: e.date, item: e });
         }
       }
     }
 
-    return list.sort((a, b) => (b.sortDate || '').localeCompare(a.sortDate || ''));
-  }, [activeTab, allNews, allEvents, search, category]);
+    return list.sort((a, b) => {
+      if (timeFilter === 'upcoming') {
+        return (a.sortDate || '').localeCompare(b.sortDate || '');
+      }
+      return (b.sortDate || '').localeCompare(a.sortDate || '');
+    });
+  }, [activeTab, allNews, allEvents, search, timeFilter]);
 
-  const showSpotlight = !search.trim() && category === 'all' && feed.length > 1;
+  const showSpotlight = !search.trim() && timeFilter === 'all' && feed.length > 1;
   const spotlight = showSpotlight ? feed[0] : null;
   const gridFeed = showSpotlight ? feed.slice(1) : feed;
 
@@ -165,30 +184,40 @@ export function NewsPage() {
           </div>
         </div>
 
-        {categories.length > 1 && (
-          <div className="flex flex-wrap items-center gap-1.5 border-t border-zinc-200/70 pt-3.5 dark:border-zinc-800">
+        {/* Period Filter Tabs */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200/70 pt-3.5 dark:border-zinc-800">
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-              Thème :
+              Période :
             </span>
-            {categories.map((cat) => {
-              const active = category === cat;
+            {[
+              { id: 'all', label: 'Tous' },
+              { id: 'upcoming', label: 'À venir' },
+              { id: 'past', label: 'Archives' }
+            ].map((tab) => {
+              const active = timeFilter === tab.id;
               return (
                 <button
-                  key={cat}
+                  key={tab.id}
                   type="button"
-                  onClick={() => setCategory(cat)}
-                  className={`cursor-pointer rounded-full px-3 py-1 text-xs font-semibold transition ${
+                  onClick={() => setTimeFilter(tab.id as 'all' | 'upcoming' | 'past')}
+                  className={`cursor-pointer rounded-full px-3.5 py-1 text-xs font-semibold transition ${
                     active
-                      ? 'bg-red-600 text-white shadow-sm'
+                      ? 'bg-zinc-900 text-white shadow-sm dark:bg-white dark:text-zinc-950'
                       : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
                   }`}
                 >
-                  {cat === 'all' ? 'Tous' : cat}
+                  {tab.label}
                 </button>
               );
             })}
           </div>
-        )}
+
+          <Badge variant="secondary" className="gap-1.5 px-3 py-1 text-xs font-semibold">
+            <CalendarDays className="h-3.5 w-3.5 text-red-600" />
+            {feed.length} {feed.length === 1 ? 'résultat' : 'résultats'}
+          </Badge>
+        </div>
       </div>
 
       {/* Results */}
@@ -199,14 +228,14 @@ export function NewsPage() {
           <Newspaper className="mb-3 h-10 w-10 text-zinc-400" />
           <p className="text-base font-semibold">Aucun contenu trouvé</p>
           <p className="mt-1 text-sm text-zinc-500">Essayez un autre filtre ou mot-clé.</p>
-          {(search || category !== 'all' || activeTab !== 'all') && (
+          {(search || timeFilter !== 'all' || activeTab !== 'all') && (
             <Button
               variant="outline"
               size="sm"
               className="mt-4"
               onClick={() => {
                 setSearch('');
-                setCategory('all');
+                setTimeFilter('all');
                 setTab('all');
               }}
             >
@@ -500,8 +529,17 @@ export function NewsPage() {
             <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
               {selectedEvent.description}
             </p>
-            {selectedEvent.link && (
-              <div className="pt-1">
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <a
+                href={getGoogleCalendarUrl(selectedEvent)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-xs font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+              >
+                <CalendarPlus className="h-4 w-4 text-red-600" />
+                Ajouter à Google Agenda
+              </a>
+              {selectedEvent.link && (
                 <a
                   href={selectedEvent.link}
                   target="_blank"
@@ -510,8 +548,8 @@ export function NewsPage() {
                 >
                   <ExternalLink className="h-4 w-4" /> Participer / En savoir plus
                 </a>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
       </Modal>
