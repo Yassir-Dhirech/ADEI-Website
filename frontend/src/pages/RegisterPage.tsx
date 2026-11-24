@@ -1,7 +1,7 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import {
   Eye,
   EyeOff,
@@ -25,7 +25,8 @@ import {
   Building2,
   KeyRound,
   Send,
-  Check
+  Check,
+  Info
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiRequest } from '@/lib/api';
@@ -117,11 +118,44 @@ const DEFAULT_CLUBS = [
   'Autre Club'
 ];
 
+// Variantes d'animation fluide et directionnelle entre étapes
+const stepVariants: Variants = {
+  enter: (dir: number) => ({
+    x: dir > 0 ? 32 : -32,
+    opacity: 0,
+    filter: 'blur(3px)'
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+    filter: 'blur(0px)',
+    transition: {
+      duration: 0.32,
+      ease: 'easeOut'
+    }
+  },
+  exit: (dir: number) => ({
+    x: dir > 0 ? -32 : 32,
+    opacity: 0,
+    filter: 'blur(3px)',
+    transition: {
+      duration: 0.22,
+      ease: 'easeIn'
+    }
+  })
+};
+
 export function RegisterPage() {
   const navigate = useNavigate();
 
-  // Étape active (1 -> 2 -> 3)
+  // Étape active (1 -> 2 -> 3) et direction d'animation (1 = suivant, -1 = retour)
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [direction, setDirection] = useState<1 | -1>(1);
+
+  const goToStep = (next: 1 | 2 | 3) => {
+    setDirection(next > step ? 1 : -1);
+    setStep(next);
+  };
 
   // Chargement des clubs
   const { data: clubsData } = useQuery({
@@ -135,13 +169,17 @@ export function RegisterPage() {
       ? clubsData.data.map((c) => c.club)
       : DEFAULT_CLUBS;
 
-  // --- ÉTAPE 1 : Coordonnées & Mot de passe ---
-  const [username, setUsername] = useState('');
+  // --- ÉTAPE 1 : Coordonnées (Nom et Prénom distincts) & Mot de passe ---
+  const [nom, setNom] = useState('');
+  const [prenom, setPrenom] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // Nom complet reconstitué pour la base de données et l'affichage
+  const fullName = `${prenom.trim()} ${nom.trim().toUpperCase()}`.trim();
 
   // --- ÉTAPE 2 : Profil Académique ---
   const [role, setRole] = useState<RoleType>('user');
@@ -190,8 +228,12 @@ export function RegisterPage() {
   // Validation passage Étape 1 -> Étape 2
   const handleNextStep1 = () => {
     setError('');
-    if (!username.trim() || username.trim().length < 2) {
-      setError('Veuillez renseigner votre nom et prénom (au moins 2 caractères).');
+    if (!nom.trim() || nom.trim().length < 2) {
+      setError('Veuillez renseigner votre nom de famille (au moins 2 caractères).');
+      return;
+    }
+    if (!prenom.trim() || prenom.trim().length < 2) {
+      setError('Veuillez renseigner votre prénom (au moins 2 caractères).');
       return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -207,13 +249,13 @@ export function RegisterPage() {
       setError('Veuillez définir un mot de passe conforme à tous les critères de sécurité.');
       return;
     }
-    setStep(2);
+    goToStep(2);
   };
 
   // Validation passage Étape 2 -> Étape 3
   const handleNextStep2 = () => {
     setError('');
-    setStep(3);
+    goToStep(3);
     if (!otpSent) {
       void handleSendOtp();
     }
@@ -231,7 +273,7 @@ export function RegisterPage() {
       });
       setOtpSent(true);
       setOtpTimer(60);
-      toast.success('Code de vérification envoyé à votre adresse email !');
+      toast.success('Code envoyé ! Vérifiez votre boîte de réception ou vos spams.');
       if (res.data?.devOtp) {
         setDevOtpHint(res.data.devOtp);
       }
@@ -280,7 +322,7 @@ export function RegisterPage() {
       await apiRequest('/register', {
         method: 'POST',
         body: JSON.stringify({
-          username: username.trim(),
+          username: fullName,
           email: email.trim(),
           phone: phone.trim(),
           filiere: resolvedFiliere,
@@ -316,10 +358,10 @@ export function RegisterPage() {
           </div>
           <h1 className="mt-5 text-2xl font-extrabold sm:text-3xl">Email vérifié &amp; Demande reçue !</h1>
           <p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-            Merci <strong>{username}</strong>. Votre adresse <strong>{email}</strong> a été validée avec succès.
+            Merci <strong>{fullName}</strong>. Votre adresse <strong>{email}</strong> a été validée avec succès.
           </p>
           <div className="my-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs font-medium text-amber-700 dark:text-amber-300">
-            ⏳ <strong>Validation finale par l&apos;ADEI :</strong> Votre compte est enregistré avec le statut « En attente ». L&apos;équipe administrative de l&apos;ADEI activera votre accès dès validation de votre inscription.
+            <strong>Validation finale par l&apos;ADEI :</strong> Votre compte est enregistré avec le statut « En attente ». L&apos;équipe administrative de l&apos;ADEI activera votre accès dès validation de votre inscription.
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
@@ -330,7 +372,7 @@ export function RegisterPage() {
               Aller vers la connexion <ArrowRight className="h-4 w-4" />
             </Button>
             <a
-              href={`https://wa.me/212629549292?text=Bonjour%20ADEI,%20je%20viens%20de%20valider%20mon%20inscription%20(${encodeURIComponent(username)}%20-%20${encodeURIComponent(email)}),%20pouvez-vous%20activer%20mon%20compte%20?`}
+              href={`https://wa.me/212629549292?text=Bonjour%20ADEI,%20je%20viens%20de%20valider%20mon%20inscription%20(${encodeURIComponent(fullName)}%20-%20${encodeURIComponent(email)}),%20pouvez-vous%20activer%20mon%20compte%20?`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-50 px-4 py-2.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300"
@@ -440,35 +482,34 @@ export function RegisterPage() {
                 const isActive = step === s.num;
                 const isPassed = step > s.num;
                 return (
-                  <button
+                  <motion.button
                     key={s.num}
                     type="button"
                     disabled={s.num > step}
-                    onClick={() => setStep(s.num as 1 | 2 | 3)}
-                    className={`flex flex-col rounded-2xl border p-2.5 text-left transition-all ${
-                      isActive
-                        ? 'border-red-600 bg-red-500/10 shadow-sm ring-1 ring-red-500/30 dark:bg-red-500/15'
-                        : isPassed
+                    whileHover={{ y: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => goToStep(s.num as 1 | 2 | 3)}
+                    className={`relative flex flex-col rounded-2xl border p-2.5 text-left transition-all ${isActive
+                      ? 'border-red-600 bg-red-500/10 shadow-sm ring-1 ring-red-500/30 dark:bg-red-500/15'
+                      : isPassed
                         ? 'border-emerald-500/40 bg-emerald-500/5 hover:border-emerald-500'
                         : 'border-zinc-200 bg-zinc-50 opacity-60 dark:border-zinc-800 dark:bg-zinc-950'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-1.5">
                       <span
-                        className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${
-                          isPassed
-                            ? 'bg-emerald-600 text-white'
-                            : isActive
+                        className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${isPassed
+                          ? 'bg-emerald-600 text-white'
+                          : isActive
                             ? 'bg-red-600 text-white'
                             : 'bg-zinc-300 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300'
-                        }`}
+                          }`}
                       >
                         {isPassed ? <Check className="h-2.5 w-2.5" /> : s.num}
                       </span>
                       <span
-                        className={`text-xs font-bold ${
-                          isActive ? 'text-red-600 dark:text-red-400' : isPassed ? 'text-emerald-600' : 'text-zinc-500'
-                        }`}
+                        className={`text-xs font-bold ${isActive ? 'text-red-600 dark:text-red-400' : isPassed ? 'text-emerald-600' : 'text-zinc-500'
+                          }`}
                       >
                         {s.title}
                       </span>
@@ -476,7 +517,7 @@ export function RegisterPage() {
                     <span className="mt-1 line-clamp-1 text-[10px] text-zinc-400">
                       {s.desc}
                     </span>
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>
@@ -487,7 +528,7 @@ export function RegisterPage() {
                 className="h-full bg-gradient-to-r from-red-600 to-rose-500"
                 initial={false}
                 animate={{ width: step === 1 ? '33.3%' : step === 2 ? '66.6%' : '100%' }}
-                transition={{ duration: 0.35, ease: 'easeInOut' }}
+                transition={{ type: 'spring', stiffness: 240, damping: 25 }}
               />
             </div>
           </div>
@@ -503,35 +544,55 @@ export function RegisterPage() {
           )}
 
           <form onSubmit={(e) => void handleSubmit(e)} className="mt-4 space-y-4">
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="wait" custom={direction}>
               {/* ========================================================
-                  ÉTAPE 1 : IDENTIFIANTS + MOT DE PASSE (Déplacé ici)
+                  ÉTAPE 1 : IDENTIFIANTS + MOT DE PASSE (Champs Nom & Prénom distincts)
                   ======================================================== */}
               {step === 1 && (
                 <motion.div
                   key="step1"
-                  initial={{ opacity: 0, x: -16 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 16 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
+                  custom={direction}
+                  variants={stepVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
                   className="space-y-3"
                 >
+                  {/* Ligne 1 : Nom et Prénom distincts */}
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
-                      <Label htmlFor="reg-username">Nom et Prénom *</Label>
+                      <Label htmlFor="reg-nom">Nom de famille *</Label>
                       <div className="relative">
                         <UserIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
                         <Input
-                          id="reg-username"
+                          id="reg-nom"
                           required
-                          placeholder="ex: Youssef El Amrani"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
+                          placeholder="ex: El Amrani"
+                          value={nom}
+                          onChange={(e) => setNom(e.target.value)}
                           className="h-9 rounded-xl pl-9 text-xs"
                         />
                       </div>
                     </div>
 
+                    <div className="space-y-1.5">
+                      <Label htmlFor="reg-prenom">Prénom *</Label>
+                      <div className="relative">
+                        <UserIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                        <Input
+                          id="reg-prenom"
+                          required
+                          placeholder="ex: Youssef"
+                          value={prenom}
+                          onChange={(e) => setPrenom(e.target.value)}
+                          className="h-9 rounded-xl pl-9 text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Ligne 2 : Email et Téléphone */}
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label htmlFor="reg-email">Adresse Email *</Label>
                       <div className="relative">
@@ -547,20 +608,20 @@ export function RegisterPage() {
                         />
                       </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="reg-phone">Numéro WhatsApp / Téléphone *</Label>
-                    <div className="relative">
-                      <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-                      <Input
-                        id="reg-phone"
-                        required
-                        placeholder="ex: 0612345678"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="h-9 rounded-xl pl-9 text-xs"
-                      />
+                    <div className="space-y-1.5">
+                      <Label htmlFor="reg-phone">Numéro WhatsApp / Téléphone *</Label>
+                      <div className="relative">
+                        <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                        <Input
+                          id="reg-phone"
+                          required
+                          placeholder="ex: 0612345678"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className="h-9 rounded-xl pl-9 text-xs"
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -628,13 +689,15 @@ export function RegisterPage() {
                     </div>
                   </div>
 
-                  <Button
-                    type="button"
-                    onClick={handleNextStep1}
-                    className="mt-3 h-10 w-full rounded-xl bg-red-600 text-xs font-semibold text-white shadow-lg shadow-red-600/20 hover:bg-red-700"
-                  >
-                    Continuer vers le profil académique <ArrowRight className="h-4 w-4" />
-                  </Button>
+                  <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}>
+                    <Button
+                      type="button"
+                      onClick={handleNextStep1}
+                      className="mt-3 h-10 w-full rounded-xl bg-red-600 text-xs font-semibold text-white shadow-lg shadow-red-600/20 hover:bg-red-700"
+                    >
+                      Continuer vers le profil académique <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </motion.div>
                 </motion.div>
               )}
 
@@ -644,10 +707,11 @@ export function RegisterPage() {
               {step === 2 && (
                 <motion.div
                   key="step2"
-                  initial={{ opacity: 0, x: -16 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 16 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
+                  custom={direction}
+                  variants={stepVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
                   className="space-y-3.5"
                 >
                   <div className="space-y-2">
@@ -659,32 +723,32 @@ export function RegisterPage() {
                         const Icon = r.icon;
                         const isSelected = role === r.id;
                         return (
-                          <button
+                          <motion.button
                             key={r.id}
                             type="button"
+                            whileHover={{ y: -2, scale: 1.02 }}
+                            whileTap={{ scale: 0.97 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                             onClick={() => setRole(r.id)}
-                            className={`relative flex flex-col items-center justify-center rounded-2xl border p-2.5 text-center transition-all ${
-                              isSelected
-                                ? 'border-red-600 bg-red-500/10 shadow-sm ring-1 ring-red-500/30 dark:bg-red-500/15'
-                                : 'border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950'
-                            }`}
+                            className={`relative flex flex-col items-center justify-center rounded-2xl border p-2.5 text-center transition-all ${isSelected
+                              ? 'border-red-600 bg-red-500/10 shadow-sm ring-1 ring-red-500/30 dark:bg-red-500/15'
+                              : 'border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950'
+                              }`}
                           >
                             <Icon
-                              className={`h-4 w-4 ${
-                                isSelected ? 'text-red-600 dark:text-red-400' : 'text-zinc-500'
-                              }`}
+                              className={`h-4 w-4 ${isSelected ? 'text-red-600 dark:text-red-400' : 'text-zinc-500'
+                                }`}
                             />
                             <span
-                              className={`mt-1 text-xs font-bold ${
-                                isSelected ? 'text-red-600 dark:text-red-400' : 'text-zinc-800 dark:text-zinc-200'
-                              }`}
+                              className={`mt-1 text-xs font-bold ${isSelected ? 'text-red-600 dark:text-red-400' : 'text-zinc-800 dark:text-zinc-200'
+                                }`}
                             >
                               {r.badge}
                             </span>
                             <span className="mt-0.5 line-clamp-1 text-[9px] text-zinc-400">
                               {r.desc}
                             </span>
-                          </button>
+                          </motion.button>
                         );
                       })}
                     </div>
@@ -823,21 +887,25 @@ export function RegisterPage() {
 
                   {/* Boutons de navigation (Retour Étape 1 + Continuer vers Étape 3) */}
                   <div className="flex gap-2.5 pt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setStep(1)}
-                      className="h-10 w-1/3 rounded-xl border-zinc-300 text-xs font-semibold hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-                    >
-                      <ArrowLeft className="h-4 w-4" /> Retour
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={handleNextStep2}
-                      className="h-10 w-2/3 rounded-xl bg-red-600 text-xs font-semibold text-white shadow-lg shadow-red-600/20 hover:bg-red-700"
-                    >
-                      Continuer vers Sécurité &amp; OTP <ArrowRight className="h-4 w-4" />
-                    </Button>
+                    <motion.div className="w-1/3" whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => goToStep(1)}
+                        className="h-10 w-full rounded-xl border-zinc-300 text-xs font-semibold hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                      >
+                        <ArrowLeft className="h-4 w-4" /> Retour
+                      </Button>
+                    </motion.div>
+                    <motion.div className="w-2/3" whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}>
+                      <Button
+                        type="button"
+                        onClick={handleNextStep2}
+                        className="h-10 w-full rounded-xl bg-red-600 text-xs font-semibold text-white shadow-lg shadow-red-600/20 hover:bg-red-700"
+                      >
+                        Continuer vers Sécurité &amp; OTP <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </motion.div>
                   </div>
                 </motion.div>
               )}
@@ -848,20 +916,21 @@ export function RegisterPage() {
               {step === 3 && (
                 <motion.div
                   key="step3"
-                  initial={{ opacity: 0, x: -16 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 16 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
+                  custom={direction}
+                  variants={stepVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
                   className="space-y-4"
                 >
                   {/* Récapitulatif visuel du profil */}
                   <div className="flex items-center justify-between rounded-2xl border border-zinc-200/80 bg-zinc-50/70 p-3 text-xs backdrop-blur dark:border-zinc-800 dark:bg-zinc-950">
                     <div className="flex items-center gap-2.5">
                       <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-600 font-bold text-white">
-                        {username.slice(0, 2).toUpperCase()}
+                        {`${(prenom[0] || '').toUpperCase()}${(nom[0] || '').toUpperCase()}`}
                       </div>
                       <div>
-                        <p className="font-bold">{username}</p>
+                        <p className="font-bold">{fullName || 'Étudiant'}</p>
                         <p className="text-[11px] text-zinc-500">{email}</p>
                       </div>
                     </div>
@@ -891,9 +960,15 @@ export function RegisterPage() {
                       </button>
                     </div>
 
-                    <p className="text-xs leading-relaxed text-zinc-500">
-                      Un code à 6 chiffres a été expédié à l&apos;adresse <strong>{email}</strong>.
-                    </p>
+                    <div className="space-y-1">
+                      <p className="text-xs leading-relaxed text-zinc-500">
+                        Un code à 6 chiffres a été expédié à l&apos;adresse <strong>{email}</strong>.
+                      </p>
+                      <p className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+                        <Info className="h-3 w-3 shrink-0" />
+                        <span>Email non reçu ? Pensez à vérifier votre dossier de courriers indésirables (Spams / Junk).</span>
+                      </p>
+                    </div>
 
                     <div className="relative">
                       <Input
@@ -909,36 +984,40 @@ export function RegisterPage() {
 
                     {devOtpHint && (
                       <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-2 text-center text-[11px] text-blue-700 dark:text-blue-300">
-                        💡 <strong>Mode Test / Démo :</strong> Votre code OTP est <strong>{devOtpHint}</strong>
+                        <strong>Mode Test / Démo :</strong> Votre code OTP est <strong>{devOtpHint}</strong>
                       </div>
                     )}
                   </div>
 
                   {/* Boutons de navigation (Retour Étape 2 + Valider) */}
                   <div className="flex gap-2.5 pt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setStep(2)}
-                      className="h-10 w-1/3 rounded-xl border-zinc-300 text-xs font-semibold hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-                    >
-                      <ArrowLeft className="h-4 w-4" /> Retour
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={loading || otp.length < 4}
-                      className="h-10 w-2/3 rounded-xl bg-red-600 text-xs font-semibold text-white shadow-lg shadow-red-600/25 hover:bg-red-700"
-                    >
-                      {loading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" /> Finalisation…
-                        </>
-                      ) : (
-                        <>
-                          Valider et créer mon compte <CheckCircle2 className="h-4 w-4" />
-                        </>
-                      )}
-                    </Button>
+                    <motion.div className="w-1/3" whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => goToStep(2)}
+                        className="h-10 w-full rounded-xl border-zinc-300 text-xs font-semibold hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                      >
+                        <ArrowLeft className="h-4 w-4" /> Retour
+                      </Button>
+                    </motion.div>
+                    <motion.div className="w-2/3" whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}>
+                      <Button
+                        type="submit"
+                        disabled={loading || otp.length < 4}
+                        className="h-10 w-full rounded-xl bg-red-600 text-xs font-semibold text-white shadow-lg shadow-red-600/25 hover:bg-red-700"
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" /> Finalisation…
+                          </>
+                        ) : (
+                          <>
+                            Valider et créer mon compte <CheckCircle2 className="h-4 w-4" />
+                          </>
+                        )}
+                      </Button>
+                    </motion.div>
                   </div>
                 </motion.div>
               )}

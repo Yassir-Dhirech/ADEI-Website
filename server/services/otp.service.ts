@@ -33,29 +33,54 @@ export async function generateAndSendOtp(email: string): Promise<{ success: bool
         secure: Number(process.env.SMTP_PORT) === 465,
         auth: {
           user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS
+          pass: (process.env.SMTP_PASS || '').replace(/\s+/g, '')
         }
       });
 
       const htmlContent = `
-        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 520px; margin: 0 auto; background-color: #ffffff; border: 1px solid #f1f5f9; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
-          <div style="background: linear-gradient(135deg, #991b1b 0%, #dc2626 100%); padding: 32px 24px; text-align: center; color: #ffffff;">
-            <h1 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 0.5px;">ADEI ENSA FÈS</h1>
-            <p style="margin: 6px 0 0; font-size: 13px; color: #fecaca;">Association des Étudiants Ingénieurs</p>
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 520px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);">
+          <!-- En-tête sobre et institutionnel -->
+          <div style="background-color: #0b0f19; padding: 30px 24px; text-align: center; border-bottom: 1px solid #1e293b;">
+            <p style="margin: 0; font-size: 10px; font-weight: 600; letter-spacing: 2.5px; color: #94a3b8; text-transform: uppercase;">
+              École Nationale des Sciences Appliquées de Fès
+            </p>
+            <h1 style="margin: 8px 0 0; font-size: 19px; font-weight: 700; letter-spacing: 1.5px; color: #ffffff;">
+              ADEI ENSA FÈS
+            </h1>
+            <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">
+              Portail Numérique Officiel
+            </p>
           </div>
-          <div style="padding: 32px 28px; color: #1e293b;">
-            <h2 style="margin: 0 0 12px; font-size: 18px; font-weight: 700; color: #0f172a;">Vérification de votre compte</h2>
-            <p style="margin: 0 0 24px; font-size: 14px; line-height: 1.6; color: #64748b;">
-              Bonjour, vous avez initié une demande d'inscription sur le portail officiel de l'ADEI. Utilisez le code de vérification ci-dessous pour confirmer votre adresse email :
+
+          <!-- Contenu du message -->
+          <div style="padding: 36px 30px; color: #1e293b;">
+            <h2 style="margin: 0 0 14px; font-size: 17px; font-weight: 700; color: #0f172a; letter-spacing: -0.2px;">
+              Bienvenue dans la communauté des ingénieurs
+            </h2>
+            <p style="margin: 0 0 24px; font-size: 14px; line-height: 1.65; color: #475569;">
+              Vous y êtes presque. Pour finaliser la création de votre profil sur le portail de l'ADEI et accéder aux ressources académiques, à la vie de club et aux services du campus, veuillez renseigner votre clé d'authentification temporaire :
             </p>
-            <div style="background-color: #fef2f2; border: 2px dashed #f87171; border-radius: 14px; padding: 20px; text-align: center; margin: 0 0 24px;">
-              <span style="font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #dc2626; font-family: monospace;">${code}</span>
+
+            <!-- Boîte de code minimaliste & architecturale -->
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 22px 20px; text-align: center; margin: 0 0 24px;">
+              <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; color: #64748b; margin-bottom: 8px;">
+                Clé de validation temporaire
+              </div>
+              <span style="font-size: 34px; font-weight: 700; letter-spacing: 12px; color: #0f172a; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; display: inline-block; padding-left: 12px;">
+                ${code}
+              </span>
             </div>
-            <p style="margin: 0 0 12px; font-size: 12px; color: #94a3b8; text-align: center;">
-              ⏳ Ce code est valable pendant <strong>10 minutes</strong>. Ne le partagez avec personne.
+
+            <!-- Note de sécurité sobre -->
+            <p style="margin: 0 0 10px; font-size: 12px; line-height: 1.6; color: #64748b; text-align: center;">
+              Ce code expire dans <strong>10 minutes</strong>. Par mesure de confidentialité, ne le transmettez à personne. Aucun membre de l'ADEI ne vous demandera votre code de confirmation.
             </p>
-            <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #f1f5f9; font-size: 11px; color: #94a3b8; text-align: center;">
-              Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email en toute sécurité.
+
+            <!-- Signature & Pied de page -->
+            <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #f1f5f9; font-size: 11px; line-height: 1.6; color: #94a3b8; text-align: center;">
+              Association des Étudiants Ingénieurs — ENSA de Fès<br/>
+              Bâtissons ensemble l'expérience étudiante de demain.<br/>
+              Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer ce message en toute tranquillité.
             </div>
           </div>
         </div>
@@ -64,11 +89,11 @@ export async function generateAndSendOtp(email: string): Promise<{ success: bool
       await transporter.sendMail({
         from: process.env.SMTP_FROM || `"ADEI ENSA Fès" <${process.env.SMTP_USER}>`,
         to: normalizedEmail,
-        subject: `🔑 ${code} est votre code de vérification ADEI ENSA Fès`,
+        subject: `${code} — Votre code de confirmation ADEI ENSA Fès`,
         html: htmlContent
       });
 
-      return { success: true, message: 'Code OTP envoyé par email avec succès !' };
+      return { success: true, message: 'Code de vérification envoyé avec succès !' };
     } catch (err) {
       console.error("Erreur lors de l'envoi de l'email SMTP :", err);
       // Fallback gracieux pour ne pas bloquer si le serveur SMTP a un problème réseau
@@ -82,7 +107,7 @@ export async function generateAndSendOtp(email: string): Promise<{ success: bool
 
   // Mode local / Développement sans identifiants SMTP
   console.log(`\n==================================================`);
-  console.log(`🔑 [SIMULATION EMAIL OTP] Code pour ${normalizedEmail} : ${code}`);
+  console.log(`[TEST MODE] Code OTP pour ${normalizedEmail} : ${code}`);
   console.log(`==================================================\n`);
 
   return {
