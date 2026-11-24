@@ -21,9 +21,30 @@ function formatDateBadge(dateStr: string) {
   };
 }
 
+function getGoogleCalendarUrl(ev: EventItem): string {
+  const [hours, minutes] = (ev.time || '10:00').split(':').map((s) => s.padStart(2, '0'));
+  const d = new Date(ev.date);
+  if (isNaN(d.getTime())) return '#';
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+
+  const startStr = `${year}${month}${day}T${hours || '10'}${minutes || '00'}00`;
+  const endHours = String(Math.min(23, Number(hours || 10) + 2)).padStart(2, '0');
+  const endStr = `${year}${month}${day}T${endHours}${minutes || '00'}00`;
+
+  const title = encodeURIComponent(`[ADEI ENSA Fès] ${ev.title}`);
+  const details = encodeURIComponent(`${ev.description}\n\nOrganisateur: ${ev.organizer || 'ADEI ENSA Fès'}`);
+  const location = encodeURIComponent(ev.location || 'ENSA Fès');
+
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startStr}/${endStr}&details=${details}&location=${location}`;
+}
+
 export function EventsPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [filterTab, setFilterTab] = useState<'all' | 'upcoming' | 'past'>('all');
   const [selected, setSelected] = useState<EventItem | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -31,11 +52,23 @@ export function EventsPage() {
     queryFn: () => apiRequest<EventItem[]>(`/events?page=${page}&limit=9`)
   });
 
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+
   const items = (data?.data ?? []).filter((ev) =>
     `${ev.title} ${ev.description} ${ev.location} ${ev.organizer ?? ''}`
       .toLowerCase()
       .includes(search.toLowerCase())
   );
+
+  const filteredItems = items.filter((ev) => {
+    if (filterTab === 'all') return true;
+    const evDate = new Date(ev.date);
+    if (isNaN(evDate.getTime())) return true;
+    if (filterTab === 'upcoming') return evDate >= now;
+    return evDate < now;
+  });
+
   const meta = data?.meta;
 
   return (
@@ -47,7 +80,7 @@ export function EventsPage() {
         image="/images/hero-news.png"
       />
 
-      {/* Search bar */}
+      {/* Search & Filter bar */}
       <div className="flex flex-col gap-3 rounded-2xl border border-zinc-200/80 bg-white/80 p-4 backdrop-blur dark:border-zinc-800/80 dark:bg-zinc-900/70 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative w-full sm:max-w-md">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
@@ -58,19 +91,41 @@ export function EventsPage() {
             className="h-10 rounded-xl pl-9"
           />
         </div>
-        <Badge variant="secondary" className="w-fit gap-1.5 px-3 py-1">
-          <CalendarDays className="h-3.5 w-3.5 text-red-600" />
-          {items.length} événement{items.length > 1 ? 's' : ''} affiché{items.length > 1 ? 's' : ''}
-        </Badge>
+
+        {/* Onglets Filtre */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {[
+            { id: 'all', label: 'Tous' },
+            { id: 'upcoming', label: 'À venir' },
+            { id: 'past', label: 'Archives' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setFilterTab(tab.id as 'all' | 'upcoming' | 'past')}
+              className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
+                filterTab === tab.id
+                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-950'
+                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+          <Badge variant="secondary" className="ml-1 gap-1 px-2.5 py-1 text-xs">
+            <CalendarDays className="h-3.5 w-3.5 text-red-600" />
+            {filteredItems.length}
+          </Badge>
+        </div>
       </div>
 
       {isLoading ? (
         <CardSkeletonGrid count={6} />
-      ) : items.length === 0 ? (
+      ) : filteredItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-zinc-300 bg-white/60 py-16 text-center dark:border-zinc-800 dark:bg-zinc-900/40">
           <CalendarDays className="mb-3 h-10 w-10 text-zinc-400" />
           <p className="text-base font-semibold">Aucun événement trouvé</p>
-          <p className="mt-1 text-sm text-zinc-500">Aucun résultat ne correspond à votre recherche.</p>
+          <p className="mt-1 text-sm text-zinc-500">Aucun résultat ne correspond à votre recherche ou filtre.</p>
           {search && (
             <Button variant="outline" size="sm" className="mt-4" onClick={() => setSearch('')}>
               Effacer la recherche
@@ -79,7 +134,7 @@ export function EventsPage() {
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {items.map((ev, idx) => {
+          {filteredItems.map((ev, idx) => {
             const badge = formatDateBadge(ev.date);
             return (
               <motion.article
@@ -192,8 +247,16 @@ export function EventsPage() {
             <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
               {selected.description}
             </p>
-            {selected.link && (
-              <div className="pt-1">
+            <div className="flex flex-wrap items-center gap-2.5 pt-2">
+              <a
+                href={getGoogleCalendarUrl(selected)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-xs font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+              >
+                <CalendarDays className="h-4 w-4 text-zinc-500" /> Ajouter à Google Agenda
+              </a>
+              {selected.link && (
                 <a
                   href={selected.link}
                   target="_blank"
@@ -202,8 +265,8 @@ export function EventsPage() {
                 >
                   <ExternalLink className="h-4 w-4" /> Participer / En savoir plus
                 </a>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
       </Modal>

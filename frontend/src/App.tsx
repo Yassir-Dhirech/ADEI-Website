@@ -88,7 +88,7 @@ export default function App() {
                   fields={[
                     { name: 'title', label: 'Titre', required: true },
                     { name: 'date', label: 'Date', type: 'date', required: true },
-                    { name: 'time', label: 'Heure (ex: 14:00)', required: true },
+                    { name: 'time', label: 'Heure de début (HH:MM)', type: 'time', required: true },
                     { name: 'location', label: 'Lieu', required: true },
                     { name: 'organizer', label: 'Organisateur' },
                     { name: 'link', label: 'Lien d’inscription' },
@@ -263,7 +263,7 @@ export default function App() {
                       label: "Rôle souhaité par l'étudiant",
                       type: 'select',
                       defaultValue: 'user',
-                      options: ['user', 'president', 'delegue']
+                      options: ['user', 'president', 'delegue', 'alumni']
                     },
                     { name: 'phone', label: 'Téléphone / WhatsApp' },
                     { name: 'filiere', label: 'Filière' },

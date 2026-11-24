@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowUp, ArrowDown, Trash2, Pencil, Plus, Search, Upload, Loader2, FolderOpen } from 'lucide-react';
+import { ArrowUp, ArrowDown, Trash2, Pencil, Plus, Search, Upload, Loader2, FolderOpen, Clock, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiRequest, getImageUrl } from '@/lib/api';
 import { Modal } from '@/components/ui';
@@ -14,7 +14,7 @@ import { Separator } from '@/components/ui/separator';
 export interface FieldConfig {
   name: string;
   label: string;
-  type?: 'text' | 'email' | 'password' | 'date' | 'number' | 'textarea' | 'file' | 'select';
+  type?: 'text' | 'email' | 'password' | 'date' | 'time' | 'number' | 'textarea' | 'file' | 'select';
   required?: boolean;
   accept?: string;
   options?: string[];
@@ -417,6 +417,42 @@ export function ResourceAdminPage({
                     onChange={(e) => setForm({ ...form, [f.name]: e.target.value })}
                     className="rounded-xl"
                   />
+                </div>
+              );
+            }
+            if (f.type === 'time') {
+              return (
+                <div key={f.name} className="space-y-1.5">
+                  <Label htmlFor={`field-${f.name}`}>{f.label}</Label>
+                  <div className="relative">
+                    <Clock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                    <Input
+                      id={`field-${f.name}`}
+                      type="time"
+                      required={f.required}
+                      value={form[f.name] || ''}
+                      onChange={(e) => setForm({ ...form, [f.name]: e.target.value })}
+                      className="h-10 rounded-xl pl-9"
+                    />
+                  </div>
+                </div>
+              );
+            }
+            if (f.type === 'date') {
+              return (
+                <div key={f.name} className="space-y-1.5">
+                  <Label htmlFor={`field-${f.name}`}>{f.label}</Label>
+                  <div className="relative">
+                    <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                    <Input
+                      id={`field-${f.name}`}
+                      type="date"
+                      required={f.required}
+                      value={form[f.name] || ''}
+                      onChange={(e) => setForm({ ...form, [f.name]: e.target.value })}
+                      className="h-10 rounded-xl pl-9"
+                    />
+                  </div>
                 </div>
               );
             }

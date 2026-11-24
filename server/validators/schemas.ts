@@ -70,7 +70,14 @@ export const eventCreateSchema = z.object({
   title: z.string().trim().min(2, 'Titre requis'),
   description: z.string().trim().min(2, 'Description requise'),
   date: z.string().min(4, 'Date requise'),
-  time: z.string().trim().min(1, 'Heure requise'),
+  time: z
+    .string()
+    .trim()
+    .min(1, 'Heure requise')
+    .transform((val) => val.replace(/h/i, ':').replace(/^(\d):/, '0$1:'))
+    .refine((val) => /^([01]\d|2[0-3]):[0-5]\d$/.test(val), {
+      message: "L'heure doit être au format HH:MM (ex: 14:30)"
+    }),
   location: z.string().trim().min(1, 'Lieu requis'),
   category: optionalStr,
   clubId: z.union([z.string(), z.number()]).optional().nullable(),
