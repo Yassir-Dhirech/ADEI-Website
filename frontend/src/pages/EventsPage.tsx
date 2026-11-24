@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Search, MapPin, Clock, ExternalLink, CalendarDays, ArrowRight, Users } from 'lucide-react';
+import { Search, MapPin, Clock, ExternalLink, CalendarDays, ArrowRight, Users, Archive } from 'lucide-react';
 import { apiRequest, getImageUrl } from '@/lib/api';
 import type { EventItem } from '@/types/api';
 import { PageHero, Modal, CardSkeletonGrid } from '@/components/ui';
@@ -135,6 +135,7 @@ export function EventsPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredItems.map((ev, idx) => {
+            const isPast = ev.date ? new Date(ev.date) < now : false;
             const badge = formatDateBadge(ev.date);
             return (
               <motion.article
@@ -143,7 +144,11 @@ export function EventsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: Math.min(idx * 0.04, 0.25) }}
                 onClick={() => setSelected(ev)}
-                className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-sm transition hover:-translate-y-1 hover:border-red-500/50 hover:shadow-lg dark:border-zinc-800/80 dark:bg-zinc-900/90"
+                className={`group flex cursor-pointer flex-col overflow-hidden rounded-2xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
+                  isPast
+                    ? 'border-zinc-300/80 bg-zinc-100/75 opacity-70 grayscale-[85%] hover:opacity-100 hover:grayscale-0 hover:bg-white dark:border-zinc-800/60 dark:bg-zinc-900/50 dark:hover:bg-zinc-900'
+                    : 'border-zinc-200/80 bg-white shadow-sm hover:border-red-500/50 dark:border-zinc-800/80 dark:bg-zinc-900/90'
+                }`}
               >
                 <div className="relative h-48 overflow-hidden bg-zinc-900">
                   <img
@@ -154,14 +159,25 @@ export function EventsPage() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
                   {/* Floating calendar chip */}
                   <div className="absolute left-3 top-3 flex flex-col items-center rounded-xl bg-white/95 px-2.5 py-1.5 text-center shadow-md backdrop-blur dark:bg-zinc-950/90">
-                    <span className="text-lg font-extrabold leading-none text-red-600">{badge.day}</span>
+                    <span className={`text-lg font-extrabold leading-none ${isPast ? 'text-zinc-500 dark:text-zinc-400' : 'text-red-600'}`}>{badge.day}</span>
                     <span className="mt-0.5 text-[10px] font-bold tracking-wider text-zinc-600 dark:text-zinc-300">
                       {badge.month}
                     </span>
                   </div>
+                  <div className="absolute right-3 top-3">
+                    {isPast ? (
+                      <Badge variant="secondary" className="gap-1 border border-zinc-700/60 bg-zinc-950/85 text-zinc-300 backdrop-blur shadow">
+                        <Archive className="h-3 w-3 text-zinc-400" /> Archivé
+                      </Badge>
+                    ) : (
+                      <Badge className="gap-1 bg-red-600 text-white shadow">
+                        <CalendarDays className="h-3 w-3" /> Événement
+                      </Badge>
+                    )}
+                  </div>
                   <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs font-medium text-white">
                     <span className="inline-flex items-center gap-1 rounded-full bg-black/50 px-2.5 py-0.5 backdrop-blur">
-                      <Clock className="h-3 w-3 text-red-400" /> {ev.time}
+                      <Clock className={`h-3 w-3 ${isPast ? 'text-zinc-300' : 'text-red-400'}`} /> {ev.time}
                     </span>
                     {ev.organizer && (
                       <span className="truncate rounded-full bg-black/50 px-2.5 py-0.5 backdrop-blur">
@@ -172,10 +188,10 @@ export function EventsPage() {
                 </div>
 
                 <div className="flex flex-1 flex-col p-5">
-                  <h2 className="text-lg font-bold leading-snug transition group-hover:text-red-600">
+                  <h2 className={`text-lg font-bold leading-snug transition ${isPast ? 'text-zinc-700 group-hover:text-zinc-950 dark:text-zinc-300 dark:group-hover:text-white' : 'group-hover:text-red-600'}`}>
                     {ev.title}
                   </h2>
-                  <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 dark:text-red-400">
+                  <p className={`mt-2 inline-flex items-center gap-1.5 text-xs font-semibold ${isPast ? 'text-zinc-500 dark:text-zinc-400' : 'text-red-600 dark:text-red-400'}`}>
                     <MapPin className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">{ev.location}</span>
                   </p>
@@ -184,8 +200,8 @@ export function EventsPage() {
                   </p>
                   <Separator className="my-4" />
                   <div className="flex items-center justify-between text-xs font-semibold">
-                    <span className="inline-flex items-center gap-1 text-red-600 transition group-hover:translate-x-0.5">
-                      Voir le programme <ArrowRight className="h-3.5 w-3.5" />
+                    <span className={`inline-flex items-center gap-1 transition ${isPast ? 'text-zinc-500 group-hover:text-zinc-800 dark:group-hover:text-zinc-200' : 'text-red-600 group-hover:translate-x-0.5'}`}>
+                      {isPast ? "Consulter l'archive" : 'Voir le programme'} <ArrowRight className="h-3.5 w-3.5" />
                     </span>
                     {ev.link && (
                       <Badge variant="secondary" className="text-[11px]">

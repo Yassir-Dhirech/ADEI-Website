@@ -15,7 +15,8 @@ import {
   ArrowRight,
   Newspaper,
   Users,
-  Layers
+  Layers,
+  Archive
 } from 'lucide-react';
 import { apiRequest, getImageUrl } from '@/lib/api';
 import type { EventItem, NewsItem } from '@/types/api';
@@ -145,6 +146,7 @@ export function NewsPage() {
 
   const showSpotlight = !search.trim() && timeFilter === 'all' && feed.length > 1;
   const spotlight = showSpotlight ? feed[0] : null;
+  const isSpotlightPast = spotlight?.item.date ? new Date(spotlight.item.date) < now : false;
   const gridFeed = showSpotlight ? feed.slice(1) : feed;
 
   return (
@@ -203,8 +205,12 @@ export function NewsPage() {
                   onClick={() => setTimeFilter(tab.id as 'all' | 'upcoming' | 'past')}
                   className={`cursor-pointer rounded-full px-3.5 py-1 text-xs font-semibold transition ${
                     active
-                      ? 'bg-zinc-900 text-white shadow-sm dark:bg-white dark:text-zinc-950'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
+                      ? tab.id === 'past'
+                        ? 'bg-zinc-700 text-white shadow-sm dark:bg-zinc-300 dark:text-zinc-950'
+                        : 'bg-zinc-900 text-white shadow-sm dark:bg-white dark:text-zinc-950'
+                      : tab.id === 'past'
+                        ? 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-800 dark:bg-zinc-800/80 dark:text-zinc-400 dark:hover:bg-zinc-700'
+                        : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
                   }`}
                 >
                   {tab.label}
@@ -214,7 +220,11 @@ export function NewsPage() {
           </div>
 
           <Badge variant="secondary" className="gap-1.5 px-3 py-1 text-xs font-semibold">
-            <CalendarDays className="h-3.5 w-3.5 text-red-600" />
+            {timeFilter === 'past' ? (
+              <Archive className="h-3.5 w-3.5 text-zinc-500" />
+            ) : (
+              <CalendarDays className="h-3.5 w-3.5 text-red-600" />
+            )}
             {feed.length} {feed.length === 1 ? 'résultat' : 'résultats'}
           </Badge>
         </div>
@@ -255,7 +265,11 @@ export function NewsPage() {
                   ? setSelectedNews(spotlight.item)
                   : setSelectedEvent(spotlight.item)
               }
-              className="group grid cursor-pointer overflow-hidden rounded-3xl border border-zinc-200/80 bg-white shadow-sm transition hover:border-red-500/50 hover:shadow-xl dark:border-zinc-800/80 dark:bg-zinc-900/90 lg:grid-cols-12"
+              className={`group grid cursor-pointer overflow-hidden rounded-3xl border transition-all duration-300 hover:shadow-xl lg:grid-cols-12 ${
+                isSpotlightPast
+                  ? 'border-zinc-300/80 bg-zinc-100/75 opacity-70 grayscale-[85%] hover:opacity-100 hover:grayscale-0 dark:border-zinc-800/60 dark:bg-zinc-900/50'
+                  : 'border-zinc-200/80 bg-white shadow-sm hover:border-red-500/50 dark:border-zinc-800/80 dark:bg-zinc-900/90'
+              }`}
             >
               <div className="relative min-h-64 overflow-hidden bg-zinc-900 lg:col-span-6">
                 <img
@@ -264,9 +278,15 @@ export function NewsPage() {
                   className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                 />
                 <div className="absolute left-4 top-4 flex items-center gap-2">
-                  <Badge className="gap-1 bg-red-600 text-white shadow">
-                    <Sparkles className="h-3 w-3" /> À la une
-                  </Badge>
+                  {isSpotlightPast ? (
+                    <Badge variant="secondary" className="gap-1 bg-zinc-950/80 text-zinc-300 backdrop-blur">
+                      <Archive className="h-3 w-3 text-zinc-400" /> Archivé
+                    </Badge>
+                  ) : (
+                    <Badge className="gap-1 bg-red-600 text-white shadow">
+                      <Sparkles className="h-3 w-3" /> À la une
+                    </Badge>
+                  )}
                   <Badge className="bg-zinc-950/75 text-white backdrop-blur">
                     {spotlight.kind === 'event' ? 'Événement' : 'Actualité'}
                   </Badge>
@@ -289,14 +309,14 @@ export function NewsPage() {
                         <span className="inline-flex items-center gap-1">
                           <Clock className="h-3.5 w-3.5" /> {spotlight.item.time}
                         </span>
-                        <span className="inline-flex items-center gap-1 font-medium text-red-600">
+                        <span className={`inline-flex items-center gap-1 font-medium ${isSpotlightPast ? 'text-zinc-500 dark:text-zinc-400' : 'text-red-600'}`}>
                           <MapPin className="h-3.5 w-3.5" /> {spotlight.item.location}
                         </span>
                       </>
                     )}
                   </div>
 
-                  <h2 className="text-2xl font-extrabold tracking-tight transition group-hover:text-red-600 sm:text-3xl">
+                  <h2 className={`text-2xl font-extrabold tracking-tight transition sm:text-3xl ${isSpotlightPast ? 'text-zinc-700 group-hover:text-zinc-950 dark:text-zinc-300 dark:group-hover:text-white' : 'group-hover:text-red-600'}`}>
                     {spotlight.item.title}
                   </h2>
 
@@ -309,8 +329,8 @@ export function NewsPage() {
                   <span className="text-xs text-zinc-500">
                     {spotlight.item.organizer || 'ADEI ENSA Fès'}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-red-600 transition group-hover:translate-x-1">
-                    {spotlight.kind === 'event' ? 'Voir le programme' : "Lire l'article"}{' '}
+                  <span className={`inline-flex items-center gap-1.5 text-sm font-semibold transition group-hover:translate-x-1 ${isSpotlightPast ? 'text-zinc-600 group-hover:text-zinc-900 dark:text-zinc-400 dark:group-hover:text-zinc-200' : 'text-red-600'}`}>
+                    {spotlight.kind === 'event' ? (isSpotlightPast ? 'Consulter le programme' : 'Voir le programme') : "Lire l'article"}{' '}
                     <ArrowRight className="h-4 w-4" />
                   </span>
                 </div>
@@ -323,6 +343,7 @@ export function NewsPage() {
             {gridFeed.map((entry, idx) => {
               if (entry.kind === 'event') {
                 const ev = entry.item;
+                const isPast = ev.date ? new Date(ev.date) < now : false;
                 const badge = formatDateBadge(ev.date);
                 return (
                   <motion.article
@@ -331,7 +352,11 @@ export function NewsPage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: Math.min(idx * 0.04, 0.25) }}
                     onClick={() => setSelectedEvent(ev)}
-                    className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-sm transition hover:-translate-y-1 hover:border-red-500/50 hover:shadow-lg dark:border-zinc-800/80 dark:bg-zinc-900/90"
+                    className={`group flex cursor-pointer flex-col overflow-hidden rounded-2xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
+                      isPast
+                        ? 'border-zinc-300/80 bg-zinc-100/75 opacity-70 grayscale-[85%] hover:opacity-100 hover:grayscale-0 hover:bg-white dark:border-zinc-800/60 dark:bg-zinc-900/50 dark:hover:bg-zinc-900'
+                        : 'border-zinc-200/80 bg-white shadow-sm hover:border-red-500/50 dark:border-zinc-800/80 dark:bg-zinc-900/90'
+                    }`}
                   >
                     <div className="relative h-48 overflow-hidden bg-zinc-900">
                       <img
@@ -341,19 +366,25 @@ export function NewsPage() {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
                       <div className="absolute left-3 top-3 flex flex-col items-center rounded-xl bg-white/95 px-2.5 py-1.5 text-center shadow-md backdrop-blur dark:bg-zinc-950/90">
-                        <span className="text-lg font-extrabold leading-none text-red-600">{badge.day}</span>
+                        <span className={`text-lg font-extrabold leading-none ${isPast ? 'text-zinc-500 dark:text-zinc-400' : 'text-red-600'}`}>{badge.day}</span>
                         <span className="mt-0.5 text-[10px] font-bold tracking-wider text-zinc-600 dark:text-zinc-300">
                           {badge.month}
                         </span>
                       </div>
                       <div className="absolute right-3 top-3">
-                        <Badge className="gap-1 bg-red-600 text-white shadow">
-                          <CalendarDays className="h-3 w-3" /> Événement
-                        </Badge>
+                        {isPast ? (
+                          <Badge variant="secondary" className="gap-1 border border-zinc-700/60 bg-zinc-950/85 text-zinc-300 backdrop-blur shadow">
+                            <Archive className="h-3 w-3 text-zinc-400" /> Archivé
+                          </Badge>
+                        ) : (
+                          <Badge className="gap-1 bg-red-600 text-white shadow">
+                            <CalendarDays className="h-3 w-3" /> Événement
+                          </Badge>
+                        )}
                       </div>
                       <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs font-medium text-white">
                         <span className="inline-flex items-center gap-1 rounded-full bg-black/50 px-2.5 py-0.5 backdrop-blur">
-                          <Clock className="h-3 w-3 text-red-400" /> {ev.time}
+                          <Clock className={`h-3 w-3 ${isPast ? 'text-zinc-300' : 'text-red-400'}`} /> {ev.time}
                         </span>
                         {ev.category && (
                           <span className="rounded-full bg-black/50 px-2.5 py-0.5 backdrop-blur">
@@ -364,10 +395,10 @@ export function NewsPage() {
                     </div>
 
                     <div className="flex flex-1 flex-col p-5">
-                      <h3 className="text-lg font-bold leading-snug transition group-hover:text-red-600">
+                      <h3 className={`text-lg font-bold leading-snug transition ${isPast ? 'text-zinc-700 group-hover:text-zinc-950 dark:text-zinc-300 dark:group-hover:text-white' : 'group-hover:text-red-600'}`}>
                         {ev.title}
                       </h3>
-                      <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 dark:text-red-400">
+                      <p className={`mt-2 inline-flex items-center gap-1.5 text-xs font-semibold ${isPast ? 'text-zinc-500 dark:text-zinc-400' : 'text-red-600 dark:text-red-400'}`}>
                         <MapPin className="h-3.5 w-3.5 shrink-0" />
                         <span className="truncate">{ev.location}</span>
                       </p>
@@ -376,8 +407,8 @@ export function NewsPage() {
                       </p>
                       <Separator className="my-4" />
                       <div className="flex items-center justify-between text-xs font-semibold">
-                        <span className="inline-flex items-center gap-1 text-red-600 transition group-hover:translate-x-0.5">
-                          Détails & lieu <ArrowRight className="h-3.5 w-3.5" />
+                        <span className={`inline-flex items-center gap-1 transition ${isPast ? 'text-zinc-500 group-hover:text-zinc-800 dark:group-hover:text-zinc-200' : 'text-red-600 group-hover:translate-x-0.5'}`}>
+                          {isPast ? "Consulter l'archive" : 'Détails & lieu'} <ArrowRight className="h-3.5 w-3.5" />
                         </span>
                         {ev.organizer && <span className="truncate text-zinc-400">{ev.organizer}</span>}
                       </div>
@@ -387,6 +418,7 @@ export function NewsPage() {
               }
 
               const news = entry.item;
+              const isNewsArchived = timeFilter === 'past';
               return (
                 <motion.article
                   key={`news-${news.id}`}
@@ -394,7 +426,11 @@ export function NewsPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(idx * 0.04, 0.25) }}
                   onClick={() => setSelectedNews(news)}
-                  className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-sm transition hover:-translate-y-1 hover:border-red-500/50 hover:shadow-lg dark:border-zinc-800/80 dark:bg-zinc-900/90"
+                  className={`group flex cursor-pointer flex-col overflow-hidden rounded-2xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
+                    isNewsArchived
+                      ? 'border-zinc-300/80 bg-zinc-100/75 opacity-70 grayscale-[85%] hover:opacity-100 hover:grayscale-0 hover:bg-white dark:border-zinc-800/60 dark:bg-zinc-900/50 dark:hover:bg-zinc-900'
+                      : 'border-zinc-200/80 bg-white shadow-sm hover:border-red-500/50 dark:border-zinc-800/80 dark:bg-zinc-900/90'
+                  }`}
                 >
                   <div className="relative h-48 overflow-hidden bg-zinc-100 dark:bg-zinc-800">
                     <img
@@ -408,18 +444,24 @@ export function NewsPage() {
                       </Badge>
                     </div>
                     <div className="absolute right-3 top-3">
-                      <Badge variant="secondary" className="gap-1 bg-white/90 text-zinc-900 backdrop-blur dark:bg-zinc-900/90 dark:text-zinc-100">
-                        <Newspaper className="h-3 w-3 text-red-600" /> Actualité
-                      </Badge>
+                      {isNewsArchived ? (
+                        <Badge variant="secondary" className="gap-1 border border-zinc-700/60 bg-zinc-950/85 text-zinc-300 backdrop-blur shadow">
+                          <Archive className="h-3 w-3 text-zinc-400" /> Archivé
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="gap-1 bg-white/90 text-zinc-900 backdrop-blur dark:bg-zinc-900/90 dark:text-zinc-100">
+                          <Newspaper className="h-3 w-3 text-red-600" /> Actualité
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-1 flex-col p-5">
                     <div className="mb-2 flex items-center gap-2 text-xs text-zinc-500">
-                      <Calendar className="h-3.5 w-3.5 text-red-500" />
+                      <Calendar className={`h-3.5 w-3.5 ${isNewsArchived ? 'text-zinc-400' : 'text-red-500'}`} />
                       <span>{news.date}</span>
                       {news.organizer && <span className="truncate">· {news.organizer}</span>}
                     </div>
-                    <h3 className="text-lg font-bold leading-snug transition group-hover:text-red-600">
+                    <h3 className={`text-lg font-bold leading-snug transition ${isNewsArchived ? 'text-zinc-700 group-hover:text-zinc-950 dark:text-zinc-300 dark:group-hover:text-white' : 'group-hover:text-red-600'}`}>
                       {news.title}
                     </h3>
                     <p className="mt-2 line-clamp-3 flex-1 text-sm text-zinc-600 dark:text-zinc-400">
@@ -427,7 +469,7 @@ export function NewsPage() {
                     </p>
                     <Separator className="my-4" />
                     <div className="flex items-center justify-between text-xs font-semibold">
-                      <span className="inline-flex items-center gap-1 text-red-600 transition group-hover:translate-x-0.5">
+                      <span className={`inline-flex items-center gap-1 transition ${isNewsArchived ? 'text-zinc-500 group-hover:text-zinc-800 dark:group-hover:text-zinc-200' : 'text-red-600 group-hover:translate-x-0.5'}`}>
                         Lire la suite <ArrowRight className="h-3.5 w-3.5" />
                       </span>
                       <div className="flex items-center gap-2 text-zinc-400">
@@ -505,6 +547,12 @@ export function NewsPage() {
                 alt={selectedEvent.title}
                 className="max-h-72 w-full rounded-xl object-cover"
               />
+            )}
+            {selectedEvent.date && new Date(selectedEvent.date) < now && (
+              <div className="flex items-center gap-2.5 rounded-xl border border-zinc-200 bg-zinc-100/90 px-3.5 py-2.5 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-800/80 dark:text-zinc-400">
+                <Archive className="h-4 w-4 shrink-0 text-zinc-500" />
+                <span>Cet événement est passé et fait partie des archives du campus.</span>
+              </div>
             )}
             <div className="grid gap-2.5 rounded-2xl bg-zinc-50 p-4 text-xs dark:bg-zinc-800/60 sm:grid-cols-2">
               <div className="flex items-center gap-2">
