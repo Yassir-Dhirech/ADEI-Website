@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import {Clock,
+import { Clock,
   ArrowRight,
   Calendar,
+  CalendarPlus,
+  Archive,
   MapPin,
   Newspaper,
   Users,
@@ -20,20 +22,117 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Modal, CardSkeletonGrid } from '@/components/ui';
 
+function parseSafeDate(dateStr?: string | null, timeStr?: string | null): Date | null {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  const trimmed = dateStr.trim();
+  if (!trimmed) return null;
+
+  let year: number | null = null;
+  let month: number | null = null;
+  let day: number | null = null;
+
+  const isoMatch = trimmed.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (isoMatch) {
+    year = parseInt(isoMatch[1], 10);
+    month = parseInt(isoMatch[2], 10) - 1;
+    day = parseInt(isoMatch[3], 10);
+  } else {
+    const frMatch = trimmed.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+    if (frMatch) {
+      day = parseInt(frMatch[1], 10);
+      month = parseInt(frMatch[2], 10) - 1;
+      year = parseInt(frMatch[3], 10);
+    }
+  }
+
+  let d: Date;
+  if (year !== null && month !== null && day !== null) {
+    d = new Date(year, month, day);
+  } else {
+    d = new Date(trimmed);
+  }
+
+  if (isNaN(d.getTime())) return null;
+
+  if (timeStr && typeof timeStr === 'string' && timeStr.includes(':')) {
+    const [h, m] = timeStr.split(':').map((s) => parseInt(s, 10));
+    if (!isNaN(h)) d.setHours(h);
+    if (!isNaN(m)) d.setMinutes(m);
+  }
+
+  return d;
+}
+
+function checkIsPast(dateStr?: string | null, timeStr?: string | null): boolean {
+  if (!dateStr) return false;
+  const parsed = parseSafeDate(dateStr, timeStr);
+  if (!parsed) return false;
+  const now = new Date();
+  if (!timeStr) {
+    const endOfDay = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 23, 59, 59, 999);
+    return endOfDay.getTime() < now.getTime();
+  }
+  return parsed.getTime() < now.getTime();
+}
+
+function formatDateBadge(dateStr?: string | null) {
+  if (!dateStr) return { day: '—', month: '—' };
+  const parsed = parseSafeDate(dateStr);
+  if (!parsed) {
+    return { day: '—', month: String(dateStr).slice(0, 6) };
+  }
+  return {
+    day: String(parsed.getDate()).padStart(2, '0'),
+    month: parsed.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '').toUpperCase()
+  };
+}
+
+function getGoogleCalendarUrl(ev: EventItem): string {
+  const [hours, minutes] = (ev.time || '10:00').split(':').map((s) => s.padStart(2, '0'));
+  const d = parseSafeDate(ev.date, ev.time) || new Date(ev.date);
+  if (isNaN(d.getTime())) return '#';
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+
+  const startStr = `${year}${month}${day}T${hours || '10'}${minutes || '00'}00`;
+  const endHours = String(Math.min(23, Number(hours || 10) + 2)).padStart(2, '0');
+  const endStr = `${year}${month}${day}T${endHours}${minutes || '00'}00`;
+
+  const title = encodeURIComponent(`[ADEI ENSA Fès] ${ev.title}`);
+  const details = encodeURIComponent(`${ev.description}\n\nOrganisateur: ${ev.organizer || 'ADEI ENSA Fès'}`);
+  const location = encodeURIComponent(ev.location || 'ENSA Fès');
+
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startStr}/${endStr}&details=${details}&location=${location}`;
+}
+
 export function HomePage() {
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
 
   const newsQuery = useQuery({ queryKey: ['news', 1, 4], queryFn: () => apiRequest<NewsItem[]>('/news?page=1&limit=4') });
-  const eventsQuery = useQuery({ queryKey: ['events', 1, 4], queryFn: () => apiRequest<EventItem[]>('/events?page=1&limit=4') });
+  const eventsQuery = useQuery({ queryKey: ['events', 'home'], queryFn: () => apiRequest<EventItem[]>('/events?page=1&limit=12') });
   const clubsQuery = useQuery({ queryKey: ['clubs'], queryFn: () => apiRequest<ClubItem[]>('/clubs') });
   const filieresQuery = useQuery({ queryKey: ['filieres'], queryFn: () => apiRequest<FiliereItem[]>('/filieres') });
 
   const newsList = newsQuery.data?.data ?? [];
   const featuredNews = newsList[0] ?? null;
   const secondaryNews = newsList.slice(1, 4);
-  const eventsList = eventsQuery.data?.data ?? [];
-  const clubsList = (clubsQuery.data?.data ?? []).slice(0, 6);
+  const rawEvents = eventsQuery.data?.data ?? [];
+  const eventsList = [...rawEvents]
+    .sort((a, b) => {
+      const aPast = checkIsPast(a.date, a.time);
+      const bPast = checkIsPast(b.date, b.time);
+      // Les événements futurs passent en premier
+      if (aPast && !bPast) return 1;
+      if (!aPast && bPast) return -1;
+      // Événements futurs : triés du plus proche au plus lointain
+      if (!aPast && !bPast) return (a.date || '').localeCompare(b.date || '');
+      // Événements passés : triés du plus récent au plus ancien
+      return (b.date || '').localeCompare(a.date || '');
+    })
+    .slice(0, 4);  const clubsList = (clubsQuery.data?.data ?? []).slice(0, 6);
 
   const stats = [
     { label: 'Filières & CP', value: filieresQuery.data?.data.length ?? 0, icon: GraduationCap, to: '/ensa' },
@@ -200,29 +299,52 @@ export function HomePage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {eventsList.map((ev) => (
-                <motion.div
-                  key={ev.id}
-                  whileHover={{ x: 4 }}
-                  onClick={() => setSelectedEvent(ev)}
-                  className="flex cursor-pointer flex-col gap-3 rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm transition hover:border-red-500/50 sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800 dark:bg-zinc-900"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-red-600/10 text-red-600">
-                      <Calendar className="h-5 w-5" />
-                      <span className="mt-0.5 text-[10px] font-bold">{ev.date.slice(5)}</span>
+                            {eventsList.map((ev) => {
+                const isPast = checkIsPast(ev.date, ev.time);
+                const badge = formatDateBadge(ev.date);
+                return (
+                  <motion.div
+                    key={ev.id}
+                    whileHover={{ x: 4 }}
+                    onClick={() => setSelectedEvent(ev)}
+                    className={`flex cursor-pointer flex-col gap-3 rounded-2xl border p-4 shadow-sm transition-all duration-300 sm:flex-row sm:items-center sm:justify-between ${
+                      isPast
+                        ? 'border-zinc-300/80 bg-zinc-100/70 opacity-70 grayscale-[85%] hover:opacity-100 hover:grayscale-0 hover:bg-white dark:border-zinc-800/60 dark:bg-zinc-900/50 dark:hover:bg-zinc-900'
+                        : 'border-zinc-200/80 bg-white hover:border-red-500/50 dark:border-zinc-800 dark:bg-zinc-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl ${
+                        isPast ? 'bg-zinc-200/80 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400' : 'bg-red-600/10 text-red-600'
+                      }`}>
+                        <span className="text-base font-extrabold leading-none">{badge.day}</span>
+                        <span className="mt-0.5 text-[9px] font-bold tracking-wider uppercase">{badge.month}</span>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          {isPast && (
+                            <span className="rounded bg-zinc-200 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                              Passé
+                            </span>
+                          )}
+                          <h3 className={`font-bold transition ${isPast ? 'text-zinc-700 dark:text-zinc-300' : 'text-zinc-900 dark:text-white'}`}>{ev.title}</h3>
+                        </div>
+                        <p className="mt-0.5 flex flex-wrap items-center gap-2.5 text-xs text-zinc-500">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className={`h-3 w-3 ${isPast ? 'text-zinc-400' : 'text-red-600'}`} /> {ev.time}
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            <MapPin className={`h-3 w-3 ${isPast ? 'text-zinc-400' : 'text-red-600'}`} /> {ev.location}
+                          </span>
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-bold">{ev.title}</h3>
-                      <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
-                        <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3 text-red-600" /> {ev.time}</span>
-                        <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3 text-red-600" /> {ev.location}</span>
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-semibold text-red-600">Détails →</span>
-                </motion.div>
-              ))}
+                    <span className={`text-xs font-semibold ${isPast ? 'text-zinc-500' : 'text-red-600'}`}>
+                      {isPast ? "Archives →" : "Détails →"}
+                    </span>
+                  </motion.div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -298,21 +420,47 @@ export function HomePage() {
         )}
       </Modal>
 
-      <Modal open={Boolean(selectedEvent)} onClose={() => setSelectedEvent(null)} title={selectedEvent?.title || ''}>
+            <Modal open={Boolean(selectedEvent)} onClose={() => setSelectedEvent(null)} title={selectedEvent?.title || ''}>
         {selectedEvent && (
           <div className="space-y-4">
             {selectedEvent.image && <img src={getImageUrl(selectedEvent.image)} alt={selectedEvent.title} className="max-h-72 w-full rounded-xl object-cover" />}
+            
+            {selectedEvent.date && checkIsPast(selectedEvent.date, selectedEvent.time) && (
+              <div className="flex items-center gap-2.5 rounded-xl border border-zinc-200 bg-zinc-100/90 px-3.5 py-2.5 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-800/80 dark:text-zinc-400">
+                <Archive className="h-4 w-4 shrink-0 text-zinc-500" />
+                <span>Cet événement a déjà eu lieu et fait partie des archives du campus.</span>
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-3 text-xs text-zinc-500">
               <Badge>{selectedEvent.date}</Badge>
               <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-red-600" /> {selectedEvent.time}</span>
               <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-red-600" /> {selectedEvent.location}</span>
             </div>
+            
             <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">{selectedEvent.description}</p>
-            {selectedEvent.link && (
-              <a href={selectedEvent.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold text-white">
-                <ExternalLink className="h-4 w-4" /> S&apos;inscrire
+            
+            <div className="flex flex-wrap items-center gap-2.5 pt-2">
+              <a
+                href={getGoogleCalendarUrl(selectedEvent)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-xs font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+              >
+                <CalendarPlus className="h-4 w-4 text-red-600" />
+                Ajouter à Google Agenda
               </a>
-            )}
+              {selectedEvent.link && (
+                <a
+                  href={selectedEvent.link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700"
+                >
+                  <ExternalLink className="h-4 w-4" /> Participer / S&apos;inscrire
+                </a>
+              )}
+            </div>
           </div>
         )}
       </Modal>
