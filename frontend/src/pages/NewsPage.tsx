@@ -381,12 +381,17 @@ export function NewsPage() {
                       <Sparkles className="h-3 w-3" /> À la une
                     </Badge>
                   )}
-                  <Badge className="bg-zinc-950/75 text-white backdrop-blur">
-                    {spotlight.kind === 'event' ? 'Événement' : 'Actualité'}
-                  </Badge>
-                  {spotlightCountdown && (
-                    <Badge className="gap-1 border border-amber-400/40 bg-amber-500 text-xs font-bold text-white shadow-md backdrop-blur">
-                      <Clock className="h-3 w-3" /> {spotlightCountdown}
+                  {spotlightCountdown ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/30 bg-zinc-950/85 px-2.5 py-1 text-xs font-semibold text-white shadow-md backdrop-blur-md">
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600" />
+                      </span>
+                      {spotlightCountdown}
+                    </span>
+                  ) : (
+                    <Badge className="bg-zinc-950/75 text-white backdrop-blur">
+                      {spotlight.kind === 'event' ? 'Événement' : 'Actualité'}
                     </Badge>
                   )}
                 </div>
@@ -471,22 +476,23 @@ export function NewsPage() {
                           {badge.month}
                         </span>
                       </div>
-                                            <div className="absolute right-3 top-3 flex flex-col items-end gap-1.5">
+                      <div className="absolute right-3 top-3">
                         {isPast ? (
                           <Badge variant="secondary" className="gap-1 border border-zinc-700/60 bg-zinc-950/85 text-zinc-300 backdrop-blur shadow">
                             <Archive className="h-3 w-3 text-zinc-400" /> Archivé
                           </Badge>
+                        ) : countdown ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/30 bg-zinc-950/85 px-3 py-1 text-[11px] font-semibold text-white shadow-md backdrop-blur-md">
+                            <span className="relative flex h-2 w-2">
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                              <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600" />
+                            </span>
+                            {countdown}
+                          </span>
                         ) : (
-                          <>
-                            <Badge className="gap-1 bg-red-600 text-white shadow">
-                              <CalendarDays className="h-3 w-3" /> Événement
-                            </Badge>
-                            {countdown && (
-                              <Badge className="gap-1 border border-amber-400/40 bg-amber-500 text-[11px] font-bold text-white shadow-md backdrop-blur">
-                                <Clock className="h-3 w-3" /> {countdown}
-                              </Badge>
-                            )}
-                          </>
+                          <Badge className="gap-1 bg-red-600 text-white shadow">
+                            <CalendarDays className="h-3 w-3" /> Événement
+                          </Badge>
                         )}
                       </div>
                       <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs font-medium text-white">
