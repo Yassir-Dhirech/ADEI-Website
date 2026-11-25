@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { Moon, Sun, Shield, User as UserIcon, LogOut, Menu, X, Mail, MapPin, Crown } from 'lucide-react';
+import { Moon, Sun, Shield, User as UserIcon, LogOut, Menu, X, Crown, ChevronDown, Mail, MapPin } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
@@ -18,6 +18,20 @@ export function Layout() {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    if (userMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [userMenuOpen]);
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
@@ -49,55 +63,117 @@ export function Layout() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              aria-label="Changer le thème"
-              className="rounded-xl p-2 text-zinc-600 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </button>
-
             {user ? (
-              <div className="hidden items-center gap-1.5 sm:flex">
-                {user.role === 'admin' && (
-                  <Link
-                    to="/admin"
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-700"
-                  >
-                    <Shield className="h-3.5 w-3.5" /> Admin
-                  </Link>
-                )}
-                {(user.is_president || user.requested_role === 'president' || user.role === 'admin') && (
-                  <Link
-                    to="/president/dashboard"
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-500/20 dark:text-amber-400"
-                  >
-                    <Crown className="h-3.5 w-3.5" /> Espace Club
-                  </Link>
-                )}
-                <Link
-                  to="/profile"
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-800"
-                >
-                  <UserIcon className="h-3.5 w-3.5" /> {user.username}
-                </Link>
+              <div className="relative hidden sm:block" ref={menuRef}>
                 <button
                   type="button"
-                  onClick={() => void logout()}
-                  aria-label="Déconnexion"
-                  className="rounded-xl p-2 text-zinc-500 hover:bg-zinc-100 hover:text-red-600 dark:hover:bg-zinc-800"
+                  onClick={() => setUserMenuOpen((v) => !v)}
+                  className="flex items-center gap-2 rounded-2xl border border-zinc-200/80 bg-white px-3 py-1.5 text-xs font-semibold shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/80"
                 >
-                  <LogOut className="h-4 w-4" />
+                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-red-600/10 text-red-600 dark:bg-red-950/50 dark:text-red-400">
+                    <UserIcon className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="max-w-[120px] truncate">{user.username}</span>
+                  <ChevronDown className={`h-3.5 w-3.5 text-zinc-400 transition-transform duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
+
+                <AnimatePresence>
+                  {userMenuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                      transition={{ duration: 0.15, ease: 'easeOut' }}
+                      className="absolute right-0 top-full mt-2 w-64 overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/95 p-1.5 shadow-2xl backdrop-blur-xl dark:border-zinc-800/80 dark:bg-zinc-900/95"
+                    >
+                      <div className="border-b border-zinc-100 px-3 py-2.5 dark:border-zinc-800">
+                        <p className="truncate text-xs font-bold text-zinc-900 dark:text-zinc-100">{user.username}</p>
+                        <p className="truncate text-[11px] text-zinc-500">{user.email}</p>
+                      </div>
+
+                      <div className="py-1">
+                        <Link
+                          to="/profile"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        >
+                          <UserIcon className="h-4 w-4 text-zinc-500" />
+                          Mon Profil
+                        </Link>
+
+                        {(user.is_president || user.requested_role === 'president' || user.role === 'admin') && (
+                          <Link
+                            to="/president/dashboard"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/10"
+                          >
+                            <Crown className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                            Espace Club
+                          </Link>
+                        )}
+
+                        {user.role === 'admin' && (
+                          <Link
+                            to="/admin"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                          >
+                            <Shield className="h-4 w-4 text-red-600 dark:text-red-400" />
+                            Dashboard Admin
+                          </Link>
+                        )}
+                      </div>
+
+                      <div className="border-t border-zinc-100 py-1 dark:border-zinc-800">
+                        <button
+                          type="button"
+                          onClick={() => toggleTheme()}
+                          className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        >
+                          <span className="flex items-center gap-2.5">
+                            {theme === 'dark' ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-zinc-500" />}
+                            {theme === 'dark' ? 'Mode Clair' : 'Mode Sombre'}
+                          </span>
+                          <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                            {theme}
+                          </span>
+                        </button>
+                      </div>
+
+                      <div className="border-t border-zinc-100 pt-1 dark:border-zinc-800">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUserMenuOpen(false);
+                            void logout();
+                          }}
+                          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          Déconnexion
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             ) : (
-              <Link
-                to="/login"
-                className="hidden rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 sm:inline-block"
-              >
-                Connexion
-              </Link>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  aria-label="Changer le thème"
+                  className="rounded-xl p-2 text-zinc-600 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                >
+                  {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                </button>
+                <Link
+                  to="/login"
+                  className="hidden rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 sm:inline-block"
+                >
+                  Connexion
+                </Link>
+              </div>
             )}
 
             <button
@@ -135,38 +211,74 @@ export function Layout() {
                     {item.label}
                   </NavLink>
                 ))}
-                <div className="mt-2 flex flex-wrap gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+                <div className="mt-2 flex flex-col gap-1 border-t border-zinc-200 pt-3 dark:border-zinc-800">
                   {user ? (
                     <>
-                      {user.role === 'admin' && (
-                        <Link to="/admin" onClick={() => setMobileOpen(false)} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white">
-                          Dashboard Admin
-                        </Link>
-                      )}
+                      <div className="px-2 py-1.5">
+                        <p className="truncate text-xs font-bold text-zinc-900 dark:text-zinc-100">{user.username}</p>
+                        <p className="truncate text-[11px] text-zinc-500">{user.email}</p>
+                      </div>
+                      <Link
+                        to="/profile"
+                        onClick={() => setMobileOpen(false)}
+                        className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      >
+                        <UserIcon className="h-4 w-4 text-zinc-500" /> Mon Profil
+                      </Link>
                       {(user.is_president || user.requested_role === 'president' || user.role === 'admin') && (
                         <Link
                           to="/president/dashboard"
                           onClick={() => setMobileOpen(false)}
-                          className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-700 dark:text-amber-400"
+                          className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
                         >
-                          Espace Club
+                          <Crown className="h-4 w-4 text-amber-600 dark:text-amber-400" /> Espace Club
                         </Link>
                       )}
-                      <Link to="/profile" onClick={() => setMobileOpen(false)} className="rounded-xl border border-zinc-300 px-3 py-2 text-xs font-medium dark:border-zinc-700">
-                        Profil ({user.username})
-                      </Link>
+                      {user.role === 'admin' && (
+                        <Link
+                          to="/admin"
+                          onClick={() => setMobileOpen(false)}
+                          className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                        >
+                          <Shield className="h-4 w-4 text-red-600 dark:text-red-400" /> Dashboard Admin
+                        </Link>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => toggleTheme()}
+                        className="flex items-center justify-between rounded-xl px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      >
+                        <span className="flex items-center gap-2">
+                          {theme === 'dark' ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-zinc-500" />}
+                          {theme === 'dark' ? 'Mode Clair' : 'Mode Sombre'}
+                        </span>
+                        <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">{theme}</span>
+                      </button>
                       <button
                         type="button"
                         onClick={() => { setMobileOpen(false); void logout(); }}
-                        className="rounded-xl bg-zinc-200 px-3 py-2 text-xs font-medium dark:bg-zinc-800"
+                        className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
                       >
-                        Déconnexion
+                        <LogOut className="h-4 w-4" /> Déconnexion
                       </button>
                     </>
                   ) : (
-                    <Link to="/login" onClick={() => setMobileOpen(false)} className="w-full rounded-xl bg-red-600 py-2 text-center text-sm font-semibold text-white">
-                      Connexion
-                    </Link>
+                    <>
+                      <Link to="/login" onClick={() => setMobileOpen(false)} className="w-full rounded-xl bg-red-600 py-2.5 text-center text-sm font-semibold text-white">
+                        Connexion
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => toggleTheme()}
+                        className="mt-1 flex items-center justify-between rounded-xl px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      >
+                        <span className="flex items-center gap-2">
+                          {theme === 'dark' ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-zinc-500" />}
+                          {theme === 'dark' ? 'Mode Clair' : 'Mode Sombre'}
+                        </span>
+                        <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">{theme}</span>
+                      </button>
+                    </>
                   )}
                 </div>
               </nav>
