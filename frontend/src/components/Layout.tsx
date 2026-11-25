@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { Moon, Sun, Shield, User as UserIcon, LogOut, Menu, X, Mail, MapPin } from 'lucide-react';
+import { Moon, Sun, Shield, User as UserIcon, LogOut, Menu, X, Mail, MapPin, Crown } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
@@ -68,6 +68,14 @@ export function Layout() {
                     <Shield className="h-3.5 w-3.5" /> Admin
                   </Link>
                 )}
+                {(user.is_president || user.requested_role === 'president' || user.role === 'admin') && (
+                  <Link
+                    to="/president/dashboard"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-500/20 dark:text-amber-400"
+                  >
+                    <Crown className="h-3.5 w-3.5" /> Espace Club
+                  </Link>
+                )}
                 <Link
                   to="/profile"
                   className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-800"
@@ -133,6 +141,15 @@ export function Layout() {
                       {user.role === 'admin' && (
                         <Link to="/admin" onClick={() => setMobileOpen(false)} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white">
                           Dashboard Admin
+                        </Link>
+                      )}
+                      {(user.is_president || user.requested_role === 'president' || user.role === 'admin') && (
+                        <Link
+                          to="/president/dashboard"
+                          onClick={() => setMobileOpen(false)}
+                          className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-700 dark:text-amber-400"
+                        >
+                          Espace Club
                         </Link>
                       )}
                       <Link to="/profile" onClick={() => setMobileOpen(false)} className="rounded-xl border border-zinc-300 px-3 py-2 text-xs font-medium dark:border-zinc-700">

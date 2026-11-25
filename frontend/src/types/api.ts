@@ -55,6 +55,12 @@ export interface EventItem {
   organizer?: string | null;
   image?: string | null;
   link?: string | null;
+  status?: 'draft' | 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string | null;
+  submittedBy?: number | null;
+  clubId?: number | null;
+  submitter?: { id: number; username: string; email: string } | null;
+  club?: { id: number; club: string; president: string } | null;
 }
 
 export interface ClubItem {
@@ -73,6 +79,8 @@ export interface ClubItem {
   facebook: string;
   instagram: string;
   linkedin: string;
+  pendingUpdates?: Record<string, unknown> | null;
+  pendingUpdatesAt?: string | null;
 }
 
 export interface FiliereItem {

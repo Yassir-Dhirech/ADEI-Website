@@ -16,6 +16,8 @@ import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage';
 import { ResourceAdminPage } from '@/pages/admin/ResourceAdminPage';
 import { FeedbacksAdminPage } from '@/pages/admin/FeedbacksAdminPage';
 import { UsersAdminPage } from './pages/admin/UsersAdminPage';
+import { ClubPresidentPage } from './pages/ClubPresidentPage';
+import { EventsAdminPage } from './pages/admin/EventsAdminPage';
 
 export default function App() {
   return (
@@ -33,23 +35,14 @@ export default function App() {
           <Route path="/feedbacks" element={<FeedbacksPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <ProfilePage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/admin"
-            element={
+          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>}/>
+          <Route path="/admin" element={
               <ProtectedRoute requireAdmin>
                 <AdminLayout />
               </ProtectedRoute>
             }
           >
+            <Route path="president/dashboard" element={<ProtectedRoute><ClubPresidentPage /></ProtectedRoute>} />
             <Route index element={<AdminDashboardPage />} />
             <Route
               path="news"
@@ -75,30 +68,7 @@ export default function App() {
                 />
               }
             />
-            <Route
-              path="events"
-              element={
-                <ResourceAdminPage
-                  title="Événements"
-                  endpoint="/events"
-                  queryKey="events"
-                  titleField="title"
-                  subtitleField="date"
-                  canReorder
-                  multipart
-                  fields={[
-                    { name: 'title', label: 'Titre', required: true },
-                    { name: 'date', label: 'Date', type: 'date', required: true },
-                    { name: 'time', label: 'Heure de début (HH:MM)', type: 'time', required: true },
-                    { name: 'location', label: 'Lieu', required: true },
-                    { name: 'organizer', label: 'Organisateur' },
-                    { name: 'link', label: 'Lien d’inscription' },
-                    { name: 'image', label: 'Affiche (JPG/PNG/WebP)', type: 'file', accept: 'image/*' },
-                    { name: 'description', label: 'Description', type: 'textarea', required: true }
-                  ]}
-                />
-              }
-            />
+            <Route path="events" element={<EventsAdminPage />} />
             <Route
               path="clubs"
               element={

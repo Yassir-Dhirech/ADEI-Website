@@ -125,3 +125,53 @@ export async function reorderEvent(id: string | number, direction: string): Prom
   clearCache('events');
   return { updated: true };
 }
+import { User } from '../models';
+
+export async function getEventById(id: string | number): Promise<Event | null> {
+  return Event.findByPk(id, {
+    include: [
+      { model: Club, as: 'club', attributes: ['id', 'club', 'president'], required: false },
+      { model: User, as: 'submitter', attributes: ['id', 'username', 'email'], required: false }
+    ]
+  });
+}
+
+export async function listEventsForUser(userId: number): Promise<Event[]> {
+  return Event.findAll({
+    where: { submittedBy: userId },
+    order: [['createdAt', 'DESC']],
+    include: [{ model: Club, as: 'club', attributes: ['id', 'club', 'president'], required: false }]
+  });
+}
+
+export async function listModerationEvents(): Promise<Event[]> {
+  return Event.findAll({
+    order: [['createdAt', 'DESC']],
+    include: [
+      { model: Club, as: 'club', attributes: ['id', 'club', 'president'], required: false },
+      { model: User, as: 'submitter', attributes: ['id', 'username', 'email'], required: false }
+    ]
+  });
+}
+
+export async function updateEventStatus(
+  eventId: string | number,
+  status: 'approved' | 'rejected' | 'pending',
+  adminId: number,
+  rejectionReason?: string
+): Promise<{ ok: boolean; status?: number; message?: string; event?: Event; submitterUser?: User | null }> {
+  const event = await Event.findByPk(eventId);
+  if (!event) return { ok: false, status: 404, message: 'Événement non trouvé' };
+
+  await event.update({
+    status,
+    reviewedBy: adminId,
+    reviewedAt: new Date(),
+    rejectionReason: status === 'rejected' ? (rejectionReason || null) : null
+  });
+
+  clearCache('events');
+
+  const submitterUser = event.submittedBy ? await User.findByPk(event.submittedBy) : null;
+  return { ok: true, event, submitterUser };
+}

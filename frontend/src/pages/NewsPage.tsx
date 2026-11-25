@@ -11,7 +11,7 @@ import {
   CalendarPlus,
   Clock,
   MapPin,
-  Sparkles,
+  
   ArrowRight,
   Newspaper,
   Users,
@@ -232,16 +232,7 @@ export function NewsPage() {
     });
   }, [activeTab, allNews, allEvents, search, timeFilter]);
 
-  const showSpotlight = !search.trim() && timeFilter === 'all' && feed.length > 1;
-  const spotlight = showSpotlight ? feed[0] : null;
-  const isSpotlightPast = spotlight
-    ? checkIsPast(spotlight.item.date, spotlight.kind === 'event' ? spotlight.item.time : undefined)
-    : false;
-  const spotlightCountdown =
-    spotlight?.kind === 'event' && !isSpotlightPast
-      ? getEventCountdown(spotlight.item.date, spotlight.item.time)
-      : null;
-  const gridFeed = showSpotlight ? feed.slice(1) : feed;
+    const gridFeed = feed;
 
   return (
     <div className="space-y-8">
@@ -349,98 +340,7 @@ export function NewsPage() {
         </div>
       ) : (
         <div className="space-y-8">
-          {/* Spotlight Card */}
-          {spotlight && (
-            <motion.article
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              onClick={() =>
-                spotlight.kind === 'news'
-                  ? setSelectedNews(spotlight.item)
-                  : setSelectedEvent(spotlight.item)
-              }
-              className={`group grid cursor-pointer overflow-hidden rounded-3xl border transition-all duration-300 hover:shadow-xl lg:grid-cols-12 ${
-                isSpotlightPast
-                  ? 'border-zinc-300/80 bg-zinc-100/75 opacity-70 grayscale-[85%] hover:opacity-100 hover:grayscale-0 dark:border-zinc-800/60 dark:bg-zinc-900/50'
-                  : 'border-zinc-200/80 bg-white shadow-sm hover:border-red-500/50 dark:border-zinc-800/80 dark:bg-zinc-900/90'
-              }`}
-            >
-              <div className="relative min-h-64 overflow-hidden bg-zinc-900 lg:col-span-6">
-                <img
-                  src={spotlight.item.image ? getImageUrl(spotlight.item.image) : '/images/default.jpg'}
-                  alt={spotlight.item.title}
-                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                />
-                                <div className="absolute left-4 top-4 flex items-center gap-2">
-                  {isSpotlightPast ? (
-                    <Badge variant="secondary" className="gap-1 bg-zinc-950/80 text-zinc-300 backdrop-blur">
-                      <Archive className="h-3 w-3 text-zinc-400" /> Archivé
-                    </Badge>
-                  ) : (
-                    <Badge className="gap-1 bg-red-600 text-white shadow">
-                      <Sparkles className="h-3 w-3" /> À la une
-                    </Badge>
-                  )}
-                  {spotlightCountdown ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/30 bg-zinc-950/85 px-2.5 py-1 text-xs font-semibold text-white shadow-md backdrop-blur-md">
-                      <span className="relative flex h-2 w-2">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600" />
-                      </span>
-                      {spotlightCountdown}
-                    </span>
-                  ) : (
-                    <Badge className="bg-zinc-950/75 text-white backdrop-blur">
-                      {spotlight.kind === 'event' ? 'Événement' : 'Actualité'}
-                    </Badge>
-                  )}
-                </div>
-              </div>
 
-              <div className="flex flex-col justify-between p-6 sm:p-8 lg:col-span-6">
-                <div className="space-y-4">
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
-                    {spotlight.item.category && (
-                      <Badge variant="secondary" className="bg-red-500/10 text-red-600 dark:text-red-400">
-                        {spotlight.item.category}
-                      </Badge>
-                    )}
-                    <span className="inline-flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5" /> {spotlight.item.date}
-                    </span>
-                    {spotlight.kind === 'event' && (
-                      <>
-                        <span className="inline-flex items-center gap-1">
-                          <Clock className="h-3.5 w-3.5" /> {spotlight.item.time}
-                        </span>
-                        <span className={`inline-flex items-center gap-1 font-medium ${isSpotlightPast ? 'text-zinc-500 dark:text-zinc-400' : 'text-red-600'}`}>
-                          <MapPin className="h-3.5 w-3.5" /> {spotlight.item.location}
-                        </span>
-                      </>
-                    )}
-                  </div>
-
-                  <h2 className={`text-2xl font-extrabold tracking-tight transition sm:text-3xl ${isSpotlightPast ? 'text-zinc-700 group-hover:text-zinc-950 dark:text-zinc-300 dark:group-hover:text-white' : 'group-hover:text-red-600'}`}>
-                    {spotlight.item.title}
-                  </h2>
-
-                  <p className="line-clamp-4 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-                    {spotlight.kind === 'news' ? spotlight.item.content : spotlight.item.description}
-                  </p>
-                </div>
-
-                <div className="mt-6 flex items-center justify-between border-t border-zinc-200/70 pt-4 dark:border-zinc-800">
-                  <span className="text-xs text-zinc-500">
-                    {spotlight.item.organizer || 'ADEI ENSA Fès'}
-                  </span>
-                  <span className={`inline-flex items-center gap-1.5 text-sm font-semibold transition group-hover:translate-x-1 ${isSpotlightPast ? 'text-zinc-600 group-hover:text-zinc-900 dark:text-zinc-400 dark:group-hover:text-zinc-200' : 'text-red-600'}`}>
-                    {spotlight.kind === 'event' ? (isSpotlightPast ? 'Consulter le programme' : 'Voir le programme') : "Lire l'article"}{' '}
-                    <ArrowRight className="h-4 w-4" />
-                  </span>
-                </div>
-              </div>
-            </motion.article>
-          )}
 
           {/* Unified Grid */}
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

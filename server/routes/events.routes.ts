@@ -13,10 +13,22 @@ const eventUpload = upload.fields([
   { name: 'document', maxCount: 1 }
 ]);
 
+// Route publique (événements validés uniquement)
 router.get('/', asyncWrapper(eventsController.getAll));
-router.post('/', authMiddleware, adminMiddleware, eventUpload, validateUploadedFiles, validate(eventCreateSchema), eventsController.create);
-router.put('/:id', authMiddleware, adminMiddleware, eventUpload, validateUploadedFiles, validate(eventUpdateSchema), eventsController.update);
-router.delete('/:id', authMiddleware, adminMiddleware, eventsController.remove);
-router.patch('/:id/reorder', authMiddleware, adminMiddleware, eventsController.reorder);
+
+// Espace Président : consulter ses propres événements soumis
+router.get('/my-events', authMiddleware, asyncWrapper(eventsController.getMyEvents));
+
+// Modération ADEI Admin : liste d'attente et décision
+router.get('/moderation', authMiddleware, adminMiddleware, asyncWrapper(eventsController.getModerationEvents));
+router.patch('/:id/status', authMiddleware, adminMiddleware, asyncWrapper(eventsController.updateStatus));
+
+// Création et mise à jour (Présidents avec modération ou Admin avec publication directe)
+router.post('/', authMiddleware, eventUpload, validateUploadedFiles, validate(eventCreateSchema), asyncWrapper(eventsController.create));
+router.put('/:id', authMiddleware, eventUpload, validateUploadedFiles, validate(eventUpdateSchema), asyncWrapper(eventsController.update));
+
+// Suppression et ordre (Admin uniquement)
+router.delete('/:id', authMiddleware, adminMiddleware, asyncWrapper(eventsController.remove));
+router.patch('/:id/reorder', authMiddleware, adminMiddleware, asyncWrapper(eventsController.reorder));
 
 export default router;

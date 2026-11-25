@@ -19,6 +19,9 @@ export class Club extends Model {
   declare linkedin: string;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
+  declare pendingUpdates: Record<string, unknown> | null;
+  declare pendingUpdatesSubmittedBy: number | null;
+  declare pendingUpdatesAt: Date | null;
 }
 
 Club.init({
@@ -36,7 +39,10 @@ Club.init({
   members: { type: DataTypes.INTEGER, defaultValue: 0 },
   facebook: { type: DataTypes.STRING(500), defaultValue: '' },
   instagram: { type: DataTypes.STRING(500), defaultValue: '' },
-  linkedin: { type: DataTypes.STRING(500), defaultValue: '' }
+  linkedin: { type: DataTypes.STRING(500), defaultValue: '' },
+  pendingUpdates: { type: DataTypes.JSONB, allowNull: true, defaultValue: null },
+  pendingUpdatesSubmittedBy: { type: DataTypes.INTEGER, allowNull: true, defaultValue: null },
+  pendingUpdatesAt: { type: DataTypes.DATE, allowNull: true, defaultValue: null }
 }, {
   sequelize,
   tableName: 'clubs',

@@ -35,3 +35,99 @@ export const remove = async (req: Request, res: Response) => {
     return sendError(res, 500, 'SERVER_ERROR', 'Erreur lors de la suppression du club');
   }
 };
+
+import {
+  notifyAdminClubUpdateSubmission,
+  notifyPresidentClubUpdateDecision
+} from '../services/notification.service';
+
+export const getMyClub = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id || req.user!.userId!;
+    const club = await clubsService.findClubForUser(userId);
+    if (!club) {
+      return sendError(res, 404, 'NOT_FOUND', "Aucun club n'est actuellement rattaché à votre compte");
+    }
+    return sendSuccess(res, club);
+  } catch {
+    return sendError(res, 500, 'SERVER_ERROR', 'Erreur lors de la récupération de votre club');
+  }
+};
+
+export const proposeUpdate = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id || req.user!.userId!;
+    const clubId = String(req.params.id);
+
+    const result = await clubsService.proposeClubUpdate(clubId, userId, req.body, req.file);
+    if (!result.ok) {
+      return sendError(res, result.status || 400, 'BAD_REQUEST', result.message || 'Action non autorisée');
+    }
+
+    if (result.club && req.user) {
+      void notifyAdminClubUpdateSubmission({
+        clubName: result.club.club,
+        presidentName: req.user.username || 'Président de Club',
+        presidentEmail: req.user.email || ''
+      });
+    }
+
+    return sendSuccess(res, result.club, {
+      message: "Modifications enregistrées et transmises au bureau ADEI pour validation."
+    });
+  } catch {
+    return sendError(res, 500, 'SERVER_ERROR', 'Erreur lors de la soumission des modifications');
+  }
+};
+
+export const approveUpdate = async (req: Request, res: Response) => {
+  try {
+    const clubId = String(req.params.id);
+    const result = await clubsService.approveClubUpdate(clubId);
+    if (!result.ok) {
+      return sendError(res, result.status || 400, 'BAD_REQUEST', result.message || 'Erreur');
+    }
+
+    if (result.presidentUser && result.club) {
+      void notifyPresidentClubUpdateDecision({
+        presidentEmail: result.presidentUser.email,
+        presidentName: result.presidentUser.username,
+        clubName: result.club.club,
+        decision: 'approved'
+      });
+    }
+
+    return sendSuccess(res, result.club, {
+      message: 'Modifications validées et publiées sur la fiche officielle du club !'
+    });
+  } catch {
+    return sendError(res, 500, 'SERVER_ERROR', 'Erreur lors de la validation des modifications');
+  }
+};
+
+export const rejectUpdate = async (req: Request, res: Response) => {
+  try {
+    const clubId = String(req.params.id);
+    const { reason } = req.body;
+    const result = await clubsService.rejectClubUpdate(clubId);
+    if (!result.ok) {
+      return sendError(res, result.status || 400, 'BAD_REQUEST', result.message || 'Erreur');
+    }
+
+    if (result.presidentUser && result.club) {
+      void notifyPresidentClubUpdateDecision({
+        presidentEmail: result.presidentUser.email,
+        presidentName: result.presidentUser.username,
+        clubName: result.club.club,
+        decision: 'rejected',
+        rejectionReason: reason
+      });
+    }
+
+    return sendSuccess(res, null, {
+      message: 'Modifications refusées. Le président a été notifié par email.'
+    });
+  } catch {
+    return sendError(res, 500, 'SERVER_ERROR', 'Erreur lors du rejet des modifications');
+  }
+};

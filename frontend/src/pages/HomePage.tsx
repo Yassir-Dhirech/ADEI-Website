@@ -107,6 +107,25 @@ function getGoogleCalendarUrl(ev: EventItem): string {
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startStr}/${endStr}&details=${details}&location=${location}`;
 }
 
+function getEventCountdown(dateStr?: string | null, timeStr?: string | null): string | null {
+  const target = parseSafeDate(dateStr, timeStr);
+  if (!target) return null;
+
+  const now = new Date();
+  const targetDay = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const diffDays = Math.round((targetDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) return null;
+  if (diffDays === 0 && timeStr && target.getTime() < now.getTime()) return null;
+  if (diffDays > 7) return null;
+
+  if (diffDays === 0) return "Aujourd'hui";
+  if (diffDays === 1) return 'Demain';
+  return `Dans ${diffDays} jours`;
+}
+
 export function HomePage() {
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
@@ -299,8 +318,9 @@ export function HomePage() {
             </div>
           ) : (
             <div className="space-y-3">
-                            {eventsList.map((ev) => {
+              {eventsList.map((ev) => {
                 const isPast = checkIsPast(ev.date, ev.time);
+                const countdown = !isPast ? getEventCountdown(ev.date, ev.time) : null;
                 const badge = formatDateBadge(ev.date);
                 return (
                   <motion.div
@@ -321,12 +341,20 @@ export function HomePage() {
                         <span className="mt-0.5 text-[9px] font-bold tracking-wider uppercase">{badge.month}</span>
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
-                          {isPast && (
+                                                <div className="flex flex-wrap items-center gap-2">
+                          {isPast ? (
                             <span className="rounded bg-zinc-200 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
                               Passé
                             </span>
-                          )}
+                          ) : countdown ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold text-red-600 dark:border-red-500/30 dark:bg-red-950/40 dark:text-red-400">
+                              <span className="relative flex h-1.5 w-1.5">
+                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-600" />
+                              </span>
+                              {countdown}
+                            </span>
+                          ) : null}
                           <h3 className={`font-bold transition ${isPast ? 'text-zinc-700 dark:text-zinc-300' : 'text-zinc-900 dark:text-white'}`}>{ev.title}</h3>
                         </div>
                         <p className="mt-0.5 flex flex-wrap items-center gap-2.5 text-xs text-zinc-500">
