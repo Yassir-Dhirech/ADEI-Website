@@ -188,10 +188,24 @@ export function NewsPage() {
       }
     }
 
-    return list.sort((a, b) => {
-      if (timeFilter === 'upcoming') {
+        return list.sort((a, b) => {
+      const aTime = a.kind === 'event' ? a.item.time : undefined;
+      const bTime = b.kind === 'event' ? b.item.time : undefined;
+      const aPast = checkIsPast(a.sortDate, aTime);
+      const bPast = checkIsPast(b.sortDate, bTime);
+
+      // Dans la vue 'all' (Tout) : les éléments à venir passent obligatoirement en premier
+      if (timeFilter === 'all') {
+        if (aPast && !bPast) return 1;
+        if (!aPast && bPast) return -1;
+      }
+
+      // Éléments à venir : classés par ordre chronologique (le plus proche en premier)
+      if (!aPast && !bPast) {
         return (a.sortDate || '').localeCompare(b.sortDate || '');
       }
+
+      // Éléments passés (archives) : classés du plus récent au plus ancien
       return (b.sortDate || '').localeCompare(a.sortDate || '');
     });
   }, [activeTab, allNews, allEvents, search, timeFilter]);
