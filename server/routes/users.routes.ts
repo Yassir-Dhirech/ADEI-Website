@@ -14,5 +14,6 @@ router.get('/', authMiddleware, adminMiddleware, usersController.getAll);
 router.post('/', authMiddleware, adminMiddleware, validate(createUserSchema), usersController.create);
 router.put('/:id', authMiddleware, adminMiddleware, validate(updateUserSchema), usersController.update);
 router.delete('/:id', authMiddleware, adminMiddleware, usersController.remove);
+router.patch('/:id/status', authMiddleware, adminMiddleware, usersController.updateStatus);
 
 export default router;

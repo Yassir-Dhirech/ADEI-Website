@@ -77,3 +77,24 @@ export const remove = async (req: Request, res: Response) => {
     return sendError(res, 500, 'SERVER_ERROR', "Erreur lors de la suppression de l'utilisateur");
   }
 };
+
+export const updateStatus = async (req: Request, res: Response) => {
+  try {
+    const { status, role, is_president, is_representant } = req.body;
+    if (!status || !['active', 'rejected', 'pending'].includes(status)) {
+      return sendError(res, 400, 'BAD_REQUEST', 'Statut invalide (active, rejected ou pending)');
+    }
+
+    const user = await usersService.updateUser(String(req.params.id), {
+      status,
+      ...(role ? { role } : {}),
+      ...(typeof is_president === 'boolean' ? { is_president } : {}),
+      ...(typeof is_representant === 'boolean' ? { is_representant } : {})
+    });
+
+    if (!user) return sendError(res, 404, 'NOT_FOUND', 'Utilisateur non trouvé');
+    return sendSuccess(res, user, { message: `Compte mis à jour avec succès : ${status}` });
+  } catch {
+    return sendError(res, 500, 'SERVER_ERROR', "Erreur lors de la mise à jour du statut");
+  }
+};
