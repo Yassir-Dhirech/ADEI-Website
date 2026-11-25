@@ -33,10 +33,63 @@ type UnifiedItem =
   | { kind: 'news'; sortDate: string; item: NewsItem }
   | { kind: 'event'; sortDate: string; item: EventItem };
 
+function parseSafeDate(dateStr?: string | null, timeStr?: string | null): Date | null {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  const trimmed = dateStr.trim();
+  if (!trimmed) return null;
+
+  let year: number | null = null;
+  let month: number | null = null;
+  let day: number | null = null;
+
+  const isoMatch = trimmed.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (isoMatch) {
+    year = parseInt(isoMatch[1], 10);
+    month = parseInt(isoMatch[2], 10) - 1;
+    day = parseInt(isoMatch[3], 10);
+  } else {
+    const frMatch = trimmed.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+    if (frMatch) {
+      day = parseInt(frMatch[1], 10);
+      month = parseInt(frMatch[2], 10) - 1;
+      year = parseInt(frMatch[3], 10);
+    }
+  }
+
+  let d: Date;
+  if (year !== null && month !== null && day !== null) {
+    d = new Date(year, month, day);
+  } else {
+    d = new Date(trimmed);
+  }
+
+  if (isNaN(d.getTime())) return null;
+
+  if (timeStr && typeof timeStr === 'string' && timeStr.includes(':')) {
+    const [h, m] = timeStr.split(':').map((s) => parseInt(s, 10));
+    if (!isNaN(h)) d.setHours(h);
+    if (!isNaN(m)) d.setMinutes(m);
+  }
+
+  return d;
+}
+
+function checkIsPast(dateStr?: string | null, timeStr?: string | null): boolean {
+  if (!dateStr) return false;
+  const parsed = parseSafeDate(dateStr, timeStr);
+  if (!parsed) return false;
+  const now = new Date();
+  if (!timeStr) {
+    const endOfDay = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 23, 59, 59, 999);
+    return endOfDay.getTime() < now.getTime();
+  }
+  return parsed.getTime() < now.getTime();
+}
+
 function formatDateBadge(dateStr?: string | null) {
   if (!dateStr) return { day: '—', month: '—' };
-  const parsed = new Date(dateStr);
-  if (Number.isNaN(parsed.getTime())) {
+  const parsed = parseSafeDate(dateStr);
+  if (!parsed) {
     return { day: '—', month: String(dateStr).slice(0, 6) };
   }
   return {
@@ -47,7 +100,7 @@ function formatDateBadge(dateStr?: string | null) {
 
 function getGoogleCalendarUrl(ev: EventItem): string {
   const [hours, minutes] = (ev.time || '10:00').split(':').map((s) => s.padStart(2, '0'));
-  const d = new Date(ev.date);
+  const d = parseSafeDate(ev.date, ev.time) || new Date(ev.date);
   if (isNaN(d.getTime())) return '#';
 
   const year = d.getFullYear();
@@ -105,11 +158,10 @@ export function NewsPage() {
     const q = search.trim().toLowerCase();
     const list: UnifiedItem[] = [];
 
-    const matchesTime = (dateStr?: string | null) => {
+    const matchesTime = (dateStr?: string | null, timeStr?: string | null) => {
       if (timeFilter === 'all' || !dateStr) return true;
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return true;
-      return timeFilter === 'upcoming' ? d >= now : d < now;
+      const isPast = checkIsPast(dateStr, timeStr);
+      return timeFilter === 'upcoming' ? !isPast : isPast;
     };
 
     if (activeTab === 'all' || activeTab === 'news') {
@@ -130,7 +182,7 @@ export function NewsPage() {
           `${e.title} ${e.description} ${e.location} ${e.category ?? ''} ${e.organizer ?? ''}`
             .toLowerCase()
             .includes(q);
-        if (matchesSearch && matchesTime(e.date)) {
+        if (matchesSearch && matchesTime(e.date, e.time)) {
           list.push({ kind: 'event', sortDate: e.date, item: e });
         }
       }
@@ -146,7 +198,9 @@ export function NewsPage() {
 
   const showSpotlight = !search.trim() && timeFilter === 'all' && feed.length > 1;
   const spotlight = showSpotlight ? feed[0] : null;
-  const isSpotlightPast = spotlight?.item.date ? new Date(spotlight.item.date) < now : false;
+  const isSpotlightPast = spotlight
+    ? checkIsPast(spotlight.item.date, spotlight.kind === 'event' ? spotlight.item.time : undefined)
+    : false;
   const gridFeed = showSpotlight ? feed.slice(1) : feed;
 
   return (
@@ -343,7 +397,7 @@ export function NewsPage() {
             {gridFeed.map((entry, idx) => {
               if (entry.kind === 'event') {
                 const ev = entry.item;
-                const isPast = ev.date ? new Date(ev.date) < now : false;
+                const isPast = checkIsPast(ev.date, ev.time);
                 const badge = formatDateBadge(ev.date);
                 return (
                   <motion.article
@@ -418,7 +472,7 @@ export function NewsPage() {
               }
 
               const news = entry.item;
-              const isNewsArchived = timeFilter === 'past';
+              const isNewsArchived = checkIsPast(news.date);
               return (
                 <motion.article
                   key={`news-${news.id}`}
@@ -548,7 +602,7 @@ export function NewsPage() {
                 className="max-h-72 w-full rounded-xl object-cover"
               />
             )}
-            {selectedEvent.date && new Date(selectedEvent.date) < now && (
+            {selectedEvent.date && checkIsPast(selectedEvent.date, selectedEvent.time) && (
               <div className="flex items-center gap-2.5 rounded-xl border border-zinc-200 bg-zinc-100/90 px-3.5 py-2.5 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-800/80 dark:text-zinc-400">
                 <Archive className="h-4 w-4 shrink-0 text-zinc-500" />
                 <span>Cet événement est passé et fait partie des archives du campus.</span>

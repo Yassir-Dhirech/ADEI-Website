@@ -10,9 +10,62 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 
+function parseSafeDate(dateStr?: string | null, timeStr?: string | null): Date | null {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  const trimmed = dateStr.trim();
+  if (!trimmed) return null;
+
+  let year: number | null = null;
+  let month: number | null = null;
+  let day: number | null = null;
+
+  const isoMatch = trimmed.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (isoMatch) {
+    year = parseInt(isoMatch[1], 10);
+    month = parseInt(isoMatch[2], 10) - 1;
+    day = parseInt(isoMatch[3], 10);
+  } else {
+    const frMatch = trimmed.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+    if (frMatch) {
+      day = parseInt(frMatch[1], 10);
+      month = parseInt(frMatch[2], 10) - 1;
+      year = parseInt(frMatch[3], 10);
+    }
+  }
+
+  let d: Date;
+  if (year !== null && month !== null && day !== null) {
+    d = new Date(year, month, day);
+  } else {
+    d = new Date(trimmed);
+  }
+
+  if (isNaN(d.getTime())) return null;
+
+  if (timeStr && typeof timeStr === 'string' && timeStr.includes(':')) {
+    const [h, m] = timeStr.split(':').map((s) => parseInt(s, 10));
+    if (!isNaN(h)) d.setHours(h);
+    if (!isNaN(m)) d.setMinutes(m);
+  }
+
+  return d;
+}
+
+function checkIsPast(dateStr?: string | null, timeStr?: string | null): boolean {
+  if (!dateStr) return false;
+  const parsed = parseSafeDate(dateStr, timeStr);
+  if (!parsed) return false;
+  const now = new Date();
+  if (!timeStr) {
+    const endOfDay = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 23, 59, 59, 999);
+    return endOfDay.getTime() < now.getTime();
+  }
+  return parsed.getTime() < now.getTime();
+}
+
 function formatDateBadge(dateStr: string) {
-  const parsed = new Date(dateStr);
-  if (Number.isNaN(parsed.getTime())) {
+  const parsed = parseSafeDate(dateStr);
+  if (!parsed) {
     return { day: '—', month: dateStr.slice(0, 6) };
   }
   return {
@@ -23,7 +76,7 @@ function formatDateBadge(dateStr: string) {
 
 function getGoogleCalendarUrl(ev: EventItem): string {
   const [hours, minutes] = (ev.time || '10:00').split(':').map((s) => s.padStart(2, '0'));
-  const d = new Date(ev.date);
+  const d = parseSafeDate(ev.date, ev.time) || new Date(ev.date);
   if (isNaN(d.getTime())) return '#';
 
   const year = d.getFullYear();
@@ -63,10 +116,8 @@ export function EventsPage() {
 
   const filteredItems = items.filter((ev) => {
     if (filterTab === 'all') return true;
-    const evDate = new Date(ev.date);
-    if (isNaN(evDate.getTime())) return true;
-    if (filterTab === 'upcoming') return evDate >= now;
-    return evDate < now;
+    const isPast = checkIsPast(ev.date, ev.time);
+    return filterTab === 'upcoming' ? !isPast : isPast;
   });
 
   const meta = data?.meta;
@@ -135,7 +186,7 @@ export function EventsPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredItems.map((ev, idx) => {
-            const isPast = ev.date ? new Date(ev.date) < now : false;
+            const isPast = checkIsPast(ev.date, ev.time);
             const badge = formatDateBadge(ev.date);
             return (
               <motion.article
@@ -239,6 +290,12 @@ export function EventsPage() {
                 alt={selected.title}
                 className="max-h-72 w-full rounded-xl object-cover"
               />
+            )}
+            {selected.date && checkIsPast(selected.date, selected.time) && (
+              <div className="flex items-center gap-2.5 rounded-xl border border-zinc-200 bg-zinc-100/90 px-3.5 py-2.5 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-800/80 dark:text-zinc-400">
+                <Archive className="h-4 w-4 shrink-0 text-zinc-500" />
+                <span>Cet événement a déjà eu lieu et fait partie des archives du campus.</span>
+              </div>
             )}
             <div className="grid gap-2.5 rounded-2xl bg-zinc-50 p-4 text-xs dark:bg-zinc-800/60 sm:grid-cols-2">
               <div className="flex items-center gap-2">
