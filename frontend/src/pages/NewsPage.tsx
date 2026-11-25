@@ -86,6 +86,28 @@ function checkIsPast(dateStr?: string | null, timeStr?: string | null): boolean 
   return parsed.getTime() < now.getTime();
 }
 
+function getEventCountdown(dateStr?: string | null, timeStr?: string | null): string | null {
+  const target = parseSafeDate(dateStr, timeStr);
+  if (!target) return null;
+
+  const now = new Date();
+  const targetDay = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const diffDays = Math.round((targetDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  // Événement déjà passé ou aujourd'hui après l'horaire
+  if (diffDays < 0) return null;
+  if (diffDays === 0 && timeStr && target.getTime() < now.getTime()) return null;
+
+  // Plus de 10 jours
+  if (diffDays > 10) return null;
+
+  // Entre 0 et 10 jours
+  if (diffDays === 0) return "Aujourd'hui";
+  if (diffDays === 1) return 'Demain';
+  return `Dans ${diffDays} jours`;
+}
 function formatDateBadge(dateStr?: string | null) {
   if (!dateStr) return { day: '—', month: '—' };
   const parsed = parseSafeDate(dateStr);
@@ -215,6 +237,10 @@ export function NewsPage() {
   const isSpotlightPast = spotlight
     ? checkIsPast(spotlight.item.date, spotlight.kind === 'event' ? spotlight.item.time : undefined)
     : false;
+  const spotlightCountdown =
+    spotlight?.kind === 'event' && !isSpotlightPast
+      ? getEventCountdown(spotlight.item.date, spotlight.item.time)
+      : null;
   const gridFeed = showSpotlight ? feed.slice(1) : feed;
 
   return (
@@ -345,7 +371,7 @@ export function NewsPage() {
                   alt={spotlight.item.title}
                   className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                 />
-                <div className="absolute left-4 top-4 flex items-center gap-2">
+                                <div className="absolute left-4 top-4 flex items-center gap-2">
                   {isSpotlightPast ? (
                     <Badge variant="secondary" className="gap-1 bg-zinc-950/80 text-zinc-300 backdrop-blur">
                       <Archive className="h-3 w-3 text-zinc-400" /> Archivé
@@ -358,6 +384,11 @@ export function NewsPage() {
                   <Badge className="bg-zinc-950/75 text-white backdrop-blur">
                     {spotlight.kind === 'event' ? 'Événement' : 'Actualité'}
                   </Badge>
+                  {spotlightCountdown && (
+                    <Badge className="gap-1 border border-amber-400/40 bg-amber-500 text-xs font-bold text-white shadow-md backdrop-blur">
+                      <Clock className="h-3 w-3" /> {spotlightCountdown}
+                    </Badge>
+                  )}
                 </div>
               </div>
 
@@ -412,6 +443,7 @@ export function NewsPage() {
               if (entry.kind === 'event') {
                 const ev = entry.item;
                 const isPast = checkIsPast(ev.date, ev.time);
+                const countdown = !isPast ? getEventCountdown(ev.date, ev.time) : null;
                 const badge = formatDateBadge(ev.date);
                 return (
                   <motion.article
@@ -439,15 +471,22 @@ export function NewsPage() {
                           {badge.month}
                         </span>
                       </div>
-                      <div className="absolute right-3 top-3">
+                                            <div className="absolute right-3 top-3 flex flex-col items-end gap-1.5">
                         {isPast ? (
                           <Badge variant="secondary" className="gap-1 border border-zinc-700/60 bg-zinc-950/85 text-zinc-300 backdrop-blur shadow">
                             <Archive className="h-3 w-3 text-zinc-400" /> Archivé
                           </Badge>
                         ) : (
-                          <Badge className="gap-1 bg-red-600 text-white shadow">
-                            <CalendarDays className="h-3 w-3" /> Événement
-                          </Badge>
+                          <>
+                            <Badge className="gap-1 bg-red-600 text-white shadow">
+                              <CalendarDays className="h-3 w-3" /> Événement
+                            </Badge>
+                            {countdown && (
+                              <Badge className="gap-1 border border-amber-400/40 bg-amber-500 text-[11px] font-bold text-white shadow-md backdrop-blur">
+                                <Clock className="h-3 w-3" /> {countdown}
+                              </Badge>
+                            )}
+                          </>
                         )}
                       </div>
                       <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs font-medium text-white">
