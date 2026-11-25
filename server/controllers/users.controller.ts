@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import * as usersService from '../services/users.service';
 import { sendSuccess, sendError } from '../utils/response';
+import { sendAccountApprovalEmail } from '../services/otp.service';
 
 export const getMe = async (req: Request, res: Response) => {
   try {
@@ -93,7 +94,11 @@ export const updateStatus = async (req: Request, res: Response) => {
     });
 
     if (!user) return sendError(res, 404, 'NOT_FOUND', 'Utilisateur non trouvé');
+    if (status === 'active' && user.email) {
+      void sendAccountApprovalEmail(user.email, user.username);
+    }
     return sendSuccess(res, user, { message: `Compte mis à jour avec succès : ${status}` });
+
   } catch {
     return sendError(res, 500, 'SERVER_ERROR', "Erreur lors de la mise à jour du statut");
   }

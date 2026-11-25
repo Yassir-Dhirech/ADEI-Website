@@ -139,3 +139,85 @@ export async function verifyOtpCode(email: string, code: string): Promise<boolea
   await record.update({ verified: true });
   return true;
 }
+
+export async function sendAccountApprovalEmail(email: string, username: string): Promise<boolean> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const hasSmtp = Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+
+  if (!hasSmtp) {
+    console.log(`[TEST MODE] Notification d'activation simulée pour ${username} (${normalizedEmail})`);
+    return true;
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 587),
+      secure: Number(process.env.SMTP_PORT) === 465,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: (process.env.SMTP_PASS || '').replace(/\s+/g, '')
+      }
+    });
+
+    const loginUrl = process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/login` : 'https://adei-ensaf.ma/login';
+
+    const htmlContent = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 520px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);">
+        <!-- En-tête officiel -->
+        <div style="background-color: #0b0f19; padding: 30px 24px; text-align: center; border-bottom: 1px solid #1e293b;">
+          <p style="margin: 0; font-size: 10px; font-weight: 600; letter-spacing: 2.5px; color: #94a3b8; text-transform: uppercase;">
+            École Nationale des Sciences Appliquées de Fès
+          </p>
+          <h1 style="margin: 8px 0 0; font-size: 19px; font-weight: 700; letter-spacing: 1.5px; color: #ffffff;">
+            ADEI ENSA FÈS
+          </h1>
+          <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">
+            Portail Numérique Officiel
+          </p>
+        </div>
+
+        <!-- Corps du message -->
+        <div style="padding: 36px 30px; color: #1e293b;">
+          <h2 style="margin: 0 0 14px; font-size: 17px; font-weight: 700; color: #0f172a; letter-spacing: -0.2px;">
+            Votre compte a été validé
+          </h2>
+          <p style="margin: 0 0 16px; font-size: 14px; line-height: 1.65; color: #475569;">
+            Bonjour <strong>${username}</strong>,
+          </p>
+          <p style="margin: 0 0 24px; font-size: 14px; line-height: 1.65; color: #475569;">
+            Nous avons le plaisir de vous informer que votre demande d'inscription sur la plateforme de l'ADEI a été approuvée par le bureau exécutif. Votre accès est désormais pleinement actif.
+          </p>
+
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${loginUrl}" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 600; padding: 14px 28px; border-radius: 10px; letter-spacing: 0.3px;">
+              Accéder à mon compte
+            </a>
+          </div>
+
+          <p style="margin: 0; font-size: 12px; line-height: 1.6; color: #94a3b8;">
+            Vous pouvez à tout moment consulter vos cours, participer aux activités des clubs et échanger avec la communauté de l'école.
+          </p>
+        </div>
+
+        <!-- Pied de page -->
+        <div style="background-color: #f8fafc; padding: 20px 24px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; line-height: 1.5;">
+          <p style="margin: 0;">Association des Étudiants Ingénieurs — ENSA de Fès</p>
+          <p style="margin: 4px 0 0;">Ceci est un message officiel automatique, merci de ne pas y répondre directement.</p>
+        </div>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: `"ADEI ENSA Fès" <${process.env.SMTP_USER}>`,
+      to: normalizedEmail,
+      subject: "Activation de votre compte ADEI ENSA Fès",
+      html: htmlContent
+    });
+
+    return true;
+  } catch (err) {
+    console.error("Erreur lors de l'envoi de l'email d'approbation :", err);
+    return false;
+  }
+}
