@@ -5,6 +5,8 @@ import type { User } from './User';
 export interface AuditLogAttributes {
   id: number;
   userId?: number | null;
+  actorEmail?: string | null;
+  actorRole?: string | null;
   action: string;
   resourceType: string;
   resourceId?: string | null;
@@ -17,7 +19,7 @@ export interface AuditLogAttributes {
 
 export type AuditLogCreationAttributes = Optional<
   AuditLogAttributes,
-  'id' | 'userId' | 'resourceId' | 'details' | 'ipAddress' | 'userAgent'
+  'id' | 'userId' | 'actorEmail' | 'actorRole' | 'resourceId' | 'details' | 'ipAddress' | 'userAgent'
 >;
 
 export class AuditLog
@@ -25,6 +27,8 @@ export class AuditLog
   implements AuditLogAttributes {
   declare id: number;
   declare userId: number | null;
+  declare actorEmail: string | null;
+  declare actorRole: string | null;
   declare action: string;
   declare resourceType: string;
   declare resourceId: string | null;
@@ -44,6 +48,14 @@ AuditLog.init(
       type: DataTypes.INTEGER,
       allowNull: true,
       references: { model: 'users', key: 'id' }
+    },
+    actorEmail: {
+      type: DataTypes.STRING(255),
+      allowNull: true
+    },
+    actorRole: {
+      type: DataTypes.STRING(50),
+      allowNull: true
     },
     action: {
       type: DataTypes.STRING(100),

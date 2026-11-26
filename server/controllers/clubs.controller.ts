@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import * as clubsService from '../services/clubs.service';
+import { Club } from '../models';
 import { sendSuccess, sendError } from '../utils/response';
 import { logAction } from '../services/audit.service';
 
@@ -35,8 +36,24 @@ export const update = async (req: Request, res: Response) => {
 
 export const remove = async (req: Request, res: Response) => {
   try {
-    const ok = await clubsService.deleteClub(String(req.params.id));
+    const clubId = String(req.params.id);
+    const existing = await Club.findByPk(clubId);
+    const ok = await clubsService.deleteClub(clubId);
     if (!ok) return sendError(res, 404, 'NOT_FOUND', 'Club non trouvé');
+
+    const adminId = req.user?.id || req.user?.userId;
+    await logAction({
+      userId: adminId ? Number(adminId) : null,
+      actorEmail: req.user?.email || null,
+      actorRole: req.user?.role || 'admin',
+      action: 'CLUB_DELETE',
+      resourceType: 'club',
+      resourceId: clubId,
+      details: { clubName: existing?.club || `Club #${clubId}` },
+      ipAddress: req.ip || null,
+      userAgent: req.headers['user-agent'] || null
+    });
+
     return sendSuccess(res, null, { message: 'Club supprimé avec succès!' });
   } catch {
     return sendError(res, 500, 'SERVER_ERROR', 'Erreur lors de la suppression du club');
@@ -113,8 +130,10 @@ export const approveUpdate = async (req: Request, res: Response) => {
     }
 
     const currentAdminId = req.user?.id || req.user?.userId;
-    void logAction({
+    await logAction({
       userId: currentAdminId ? Number(currentAdminId) : null,
+      actorEmail: req.user?.email || null,
+      actorRole: req.user?.role || 'admin',
       action: 'CLUB_PROPOSAL_APPROVE',
       resourceType: 'club',
       resourceId: clubId,
@@ -122,8 +141,8 @@ export const approveUpdate = async (req: Request, res: Response) => {
         clubName: result.club?.club,
         approvedBy: currentAdminId
       },
-      ipAddress: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress,
-      userAgent: req.headers['user-agent']
+      ipAddress: req.ip || null,
+      userAgent: req.headers['user-agent'] || null
     });
 
     return sendSuccess(res, result.club, {
@@ -154,8 +173,10 @@ export const rejectUpdate = async (req: Request, res: Response) => {
     }
 
     const currentAdminId = req.user?.id || req.user?.userId;
-    void logAction({
+    await logAction({
       userId: currentAdminId ? Number(currentAdminId) : null,
+      actorEmail: req.user?.email || null,
+      actorRole: req.user?.role || 'admin',
       action: 'CLUB_PROPOSAL_REJECT',
       resourceType: 'club',
       resourceId: clubId,
@@ -164,8 +185,8 @@ export const rejectUpdate = async (req: Request, res: Response) => {
         rejectionReason: reason || 'Non précisé',
         rejectedBy: currentAdminId
       },
-      ipAddress: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress,
-      userAgent: req.headers['user-agent']
+      ipAddress: req.ip || null,
+      userAgent: req.headers['user-agent'] || null
     });
 
     return sendSuccess(res, null, {

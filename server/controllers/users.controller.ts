@@ -34,6 +34,19 @@ export const changePassword = async (req: Request, res: Response) => {
     if (!result.ok) {
       return sendError(res, result.status, result.status === 404 ? 'NOT_FOUND' : 'BAD_REQUEST', result.message || 'Erreur');
     }
+
+    await logAction({
+      userId: Number(userId),
+      actorEmail: req.user?.email || null,
+      actorRole: req.user?.role || 'user',
+      action: 'PASSWORD_CHANGE',
+      resourceType: 'user',
+      resourceId: userId,
+      details: { note: 'Changement de mot de passe utilisateur' },
+      ipAddress: req.ip || null,
+      userAgent: req.headers['user-agent'] || null
+    });
+
     return sendSuccess(res, null, { message: 'Mot de passe modifié avec succès' });
   } catch {
     return sendError(res, 500, 'SERVER_ERROR', 'Erreur lors de la modification du mot de passe');
@@ -74,6 +87,21 @@ export const remove = async (req: Request, res: Response) => {
     const result = await usersService.deleteUser(String(req.params.id));
     if (result.lastAdmin) return sendError(res, 400, 'BAD_REQUEST', 'Impossible de supprimer le dernier administrateur');
     if (!result.deleted) return sendError(res, 404, 'NOT_FOUND', 'Utilisateur non trouvé');
+
+    const currentAdminId = req.user?.id || req.user?.userId;
+    const targetUserId = String(req.params.id);
+    await logAction({
+      userId: currentAdminId ? Number(currentAdminId) : null,
+      actorEmail: req.user?.email || null,
+      actorRole: req.user?.role || 'admin',
+      action: 'USER_DELETE',
+      resourceType: 'user',
+      resourceId: targetUserId,
+      details: { targetUserId },
+      ipAddress: req.ip || null,
+      userAgent: req.headers['user-agent'] || null
+    });
+
     return sendSuccess(res, null, { message: 'Utilisateur supprimé' });
   } catch {
     return sendError(res, 500, 'SERVER_ERROR', "Erreur lors de la suppression de l'utilisateur");
@@ -100,8 +128,10 @@ export const updateStatus = async (req: Request, res: Response) => {
     }
 
     const currentAdminId = req.user?.id || req.user?.userId;
-    void logAction({
+    await logAction({
       userId: currentAdminId ? Number(currentAdminId) : null,
+      actorEmail: req.user?.email || null,
+      actorRole: req.user?.role || 'admin',
       action: status === 'active' ? 'USER_APPROVE' : (status === 'rejected' ? 'USER_REJECT' : 'USER_STATUS_UPDATE'),
       resourceType: 'user',
       resourceId: user.id,
@@ -113,8 +143,9 @@ export const updateStatus = async (req: Request, res: Response) => {
         is_president: user.is_president,
         is_representant: user.is_representant
       },
-      ipAddress: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress,
-      userAgent: req.headers['user-agent']
+      ipAddress: req.ip || null,
+      userAgent: req.headers['user-agent'] || null,
+      strict: true // Critical governance operation: abort request if audit write fails
     });
 
     return sendSuccess(res, user, { message: `Compte mis à jour avec succès : ${status}` });

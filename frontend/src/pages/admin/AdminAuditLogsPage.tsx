@@ -22,6 +22,8 @@ import { Input } from '@/components/ui/input';
 interface AuditLogItem {
   id: number;
   userId: number | null;
+  actorEmail?: string | null;
+  actorRole?: string | null;
   action: string;
   resourceType: string;
   resourceId: string | null;
@@ -242,7 +244,14 @@ export function AdminAuditLogsPage() {
                     </td>
 
                     <td className="py-3 px-4 whitespace-nowrap font-medium text-zinc-900 dark:text-zinc-100">
-                      {log.user ? (
+                      {log.actorEmail ? (
+                        <div>
+                          <span>{log.user?.username || log.actorEmail.split('@')[0]}</span>
+                          <span className="block text-[10px] text-zinc-400 font-normal">
+                            {log.actorEmail} {log.actorRole ? `(${log.actorRole})` : ''}
+                          </span>
+                        </div>
+                      ) : log.user ? (
                         <div>
                           <span>{log.user.username}</span>
                           <span className="block text-[10px] text-zinc-400 font-normal">{log.user.email}</span>

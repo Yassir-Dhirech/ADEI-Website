@@ -90,6 +90,25 @@ export const getRegistrations = async (req: Request, res: Response) => {
     }
 
     const attendees = await eventsService.getEventRegistrations(eventId);
+
+    // Traçabilité obligatoire Loi 09-08 : consigner l'accès et l'export de la liste des inscrits
+    await logAction({
+      userId: userId ? Number(userId) : null,
+      actorEmail: req.user?.email || null,
+      actorRole: req.user?.role || (isAdmin ? 'admin' : 'president'),
+      action: 'ROSTER_EXPORT',
+      resourceType: 'event_roster',
+      resourceId: event.id,
+      details: {
+        eventTitle: event.title,
+        exportedCount: attendees.length,
+        note: 'Extraction et consultation de la liste d émargement'
+      },
+      ipAddress: req.ip || null,
+      userAgent: req.headers['user-agent'] || null,
+      strict: true
+    });
+
     return sendSuccess(res, attendees);
   } catch {
     return sendError(res, 500, 'SERVER_ERROR', "Erreur lors de la récupération des inscrits");
@@ -240,18 +259,20 @@ export const updateStatus = async (req: Request, res: Response) => {
       });
     }
 
-    void logAction({
+    await logAction({
       userId: Number(adminId),
+      actorEmail: req.user?.email || null,
+      actorRole: req.user?.role || 'admin',
       action: status === 'approved' ? 'EVENT_APPROVE' : (status === 'rejected' ? 'EVENT_REJECT' : 'EVENT_STATUS_UPDATE'),
       resourceType: 'event',
       resourceId: eventId,
       details: {
         eventTitle: result.event?.title,
         newStatus: status,
-        rejectionReason
+        rejectionReason: rejectionReason || null
       },
-      ipAddress: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress,
-      userAgent: req.headers['user-agent']
+      ipAddress: req.ip || null,
+      userAgent: req.headers['user-agent'] || null
     });
 
     return sendSuccess(res, result.event, {
@@ -266,8 +287,26 @@ export const updateStatus = async (req: Request, res: Response) => {
 
 export const remove = async (req: Request, res: Response) => {
   try {
-    const ok = await eventsService.deleteEvent(String(req.params.id));
+    const eventId = String(req.params.id);
+    const existing = await eventsService.getEventById(eventId);
+    const ok = await eventsService.deleteEvent(eventId);
     if (!ok) return sendError(res, 404, 'NOT_FOUND', 'Événement non trouvé');
+
+    const adminId = req.user?.id || req.user?.userId;
+    await logAction({
+      userId: adminId ? Number(adminId) : null,
+      actorEmail: req.user?.email || null,
+      actorRole: req.user?.role || 'admin',
+      action: 'EVENT_DELETE',
+      resourceType: 'event',
+      resourceId: eventId,
+      details: {
+        eventTitle: existing?.title || `Événement #${eventId}`
+      },
+      ipAddress: req.ip || null,
+      userAgent: req.headers['user-agent'] || null
+    });
+
     return sendSuccess(res, null, { message: 'Événement supprimé' });
   } catch {
     return sendError(res, 500, 'SERVER_ERROR', "Erreur lors de la suppression de l'événement");

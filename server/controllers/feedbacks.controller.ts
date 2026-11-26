@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import * as feedbacksService from '../services/feedbacks.service';
 import { sendSuccess, sendError } from '../utils/response';
+import { logAction } from '../services/audit.service';
 
 export const getPublic = async (req: Request, res: Response) => {
   const { data, meta } = await feedbacksService.listPublicFeedbacks(req.query as Record<string, unknown>);
@@ -62,8 +63,23 @@ export const toggleLike = async (req: Request, res: Response) => {
 
 export const remove = async (req: Request, res: Response) => {
   try {
-    const ok = await feedbacksService.deleteFeedback(String(req.params.id));
+    const feedbackId = String(req.params.id);
+    const ok = await feedbacksService.deleteFeedback(feedbackId);
     if (!ok) return sendError(res, 404, 'NOT_FOUND', 'Feedback non trouvé');
+
+    const adminId = req.user?.id || req.user?.userId;
+    await logAction({
+      userId: adminId ? Number(adminId) : null,
+      actorEmail: req.user?.email || null,
+      actorRole: req.user?.role || 'admin',
+      action: 'FEEDBACK_DELETE',
+      resourceType: 'feedback',
+      resourceId: feedbackId,
+      details: { feedbackId },
+      ipAddress: req.ip || null,
+      userAgent: req.headers['user-agent'] || null
+    });
+
     return sendSuccess(res, null, { message: 'Feedback supprimé' });
   } catch {
     return sendError(res, 500, 'SERVER_ERROR', 'Erreur lors de la suppression du feedback');

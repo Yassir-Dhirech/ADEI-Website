@@ -3,6 +3,7 @@ import * as authService from '../services/auth.service';
 import * as otpService from '../services/otp.service';
 import env from '../config/env';
 import { sendSuccess, sendError } from '../utils/response';
+import { logAction } from '../services/audit.service';
 
 const AUTH_COOKIE_NAME = 'adei_token';
 const COOKIE_OPTIONS: CookieOptions = {
@@ -17,6 +18,14 @@ export const login = async (req: Request, res: Response) => {
     const { email, password } = req.body;
     const result = await authService.authenticate(email, password);
     if (!result.success) {
+      await logAction({
+        action: 'LOGIN_FAILURE',
+        resourceType: 'auth',
+        details: { email: String(email || '').trim().toLowerCase(), reason: result.code },
+        ipAddress: req.ip || null,
+        userAgent: req.headers['user-agent'] || null
+      });
+
       if (result.code === 'ACCOUNT_PENDING') {
         return sendError(
           res,
@@ -35,6 +44,16 @@ export const login = async (req: Request, res: Response) => {
       }
       return sendError(res, 401, 'UNAUTHORIZED', 'Identifiants invalides');
     }
+
+    await logAction({
+      userId: result.user.id,
+      actorEmail: result.user.email,
+      actorRole: result.user.role,
+      action: 'LOGIN_SUCCESS',
+      resourceType: 'auth',
+      ipAddress: req.ip || null,
+      userAgent: req.headers['user-agent'] || null
+    });
 
     res.cookie(AUTH_COOKIE_NAME, result.token, COOKIE_OPTIONS);
     return sendSuccess(res, { token: result.token, user: result.user }, { message: 'Connexion réussie' });
