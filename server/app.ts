@@ -26,6 +26,9 @@ if (env.isProduction || process.env.DATABASE_URL) {
   sequelize.query(`
     ALTER TABLE IF EXISTS feedbacks ADD COLUMN IF NOT EXISTS "isPublished" BOOLEAN DEFAULT false NOT NULL;
     ALTER TABLE IF EXISTS feedbacks ADD COLUMN IF NOT EXISTS "userId" INTEGER REFERENCES users(id) ON DELETE SET NULL;
+    ALTER TABLE IF EXISTS clubs ADD COLUMN IF NOT EXISTS "pendingUpdates" JSONB DEFAULT NULL;
+    ALTER TABLE IF EXISTS clubs ADD COLUMN IF NOT EXISTS "pendingUpdatesSubmittedBy" INTEGER REFERENCES users(id) ON DELETE SET NULL;
+    ALTER TABLE IF EXISTS clubs ADD COLUMN IF NOT EXISTS "pendingUpdatesAt" TIMESTAMP WITH TIME ZONE DEFAULT NULL;
   `).catch((err: unknown) => {
     console.warn('[DB Auto-heal warning]:', err instanceof Error ? err.message : err);
   });

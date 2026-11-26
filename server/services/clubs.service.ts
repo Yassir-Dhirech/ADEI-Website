@@ -97,38 +97,42 @@ export async function handlePresidentAssignment(club: Club, presidentIdRaw: unkn
     presidentIdRaw === 0 ||
     presidentIdRaw === '0'
   ) {
-    const oldPresidents = await ClubMember.findAll({
-      where: {
-        clubId: club.id,
-        role: 'president',
-        status: 'active'
-      }
-    });
+    try {
+      const oldPresidents = await ClubMember.findAll({
+        where: {
+          clubId: club.id,
+          role: 'president',
+          status: 'active'
+        }
+      });
 
-    if (oldPresidents.length > 0) {
-      await ClubMember.update(
-        { status: 'left' },
-        {
-          where: {
-            clubId: club.id,
-            role: 'president',
-            status: 'active'
+      if (oldPresidents.length > 0) {
+        await ClubMember.update(
+          { status: 'left' },
+          {
+            where: {
+              clubId: club.id,
+              role: 'president',
+              status: 'active'
+            }
+          }
+        );
+
+        for (const m of oldPresidents) {
+          const otherCount = await ClubMember.count({
+            where: {
+              userId: m.userId,
+              role: 'president',
+              status: 'active'
+            }
+          });
+          if (otherCount === 0) {
+            await User.update({ is_president: false }, { where: { id: m.userId } });
           }
         }
-      );
-
-      for (const m of oldPresidents) {
-        const otherCount = await ClubMember.count({
-          where: {
-            userId: m.userId,
-            role: 'president',
-            status: 'active'
-          }
-        });
-        if (otherCount === 0) {
-          await User.update({ is_president: false }, { where: { id: m.userId } });
-        }
       }
+    } catch (err) {
+      console.warn('[handlePresidentAssignment:unassign] ClubMember error:', err);
     }
 
     await club.update({ president: NOT_ASSIGNED_PRESIDENT });
@@ -140,66 +144,70 @@ export async function handlePresidentAssignment(club: Club, presidentIdRaw: unkn
   if (!Number.isNaN(parsedId) && parsedId > 0) {
     const user = await User.findByPk(parsedId);
     if (user) {
-      // 1. Désactiver les anciens présidents de ce club
-      const previousActive = await ClubMember.findAll({
-        where: {
-          clubId: club.id,
-          role: 'president',
-          status: 'active',
-          userId: { [Op.ne]: user.id }
-        }
-      });
+      try {
+        // 1. Désactiver les anciens présidents de ce club
+        const previousActive = await ClubMember.findAll({
+          where: {
+            clubId: club.id,
+            role: 'president',
+            status: 'active',
+            userId: { [Op.ne]: user.id }
+          }
+        });
 
-      if (previousActive.length > 0) {
-        await ClubMember.update(
-          { status: 'left' },
-          {
-            where: {
-              clubId: club.id,
-              role: 'president',
-              status: 'active',
-              userId: { [Op.ne]: user.id }
+        if (previousActive.length > 0) {
+          await ClubMember.update(
+            { status: 'left' },
+            {
+              where: {
+                clubId: club.id,
+                role: 'president',
+                status: 'active',
+                userId: { [Op.ne]: user.id }
+              }
+            }
+          );
+
+          for (const prev of previousActive) {
+            const otherCount = await ClubMember.count({
+              where: {
+                userId: prev.userId,
+                role: 'president',
+                status: 'active'
+              }
+            });
+            if (otherCount === 0) {
+              await User.update({ is_president: false }, { where: { id: prev.userId } });
             }
           }
-        );
+        }
 
-        for (const prev of previousActive) {
-          const otherCount = await ClubMember.count({
-            where: {
-              userId: prev.userId,
-              role: 'president',
-              status: 'active'
-            }
-          });
-          if (otherCount === 0) {
-            await User.update({ is_president: false }, { where: { id: prev.userId } });
+        // 2. Créer ou activer l'adhésion président
+        const [membership] = await ClubMember.findOrCreate({
+          where: {
+            userId: user.id,
+            clubId: club.id,
+            academicYear: currentYear
+          },
+          defaults: {
+            userId: user.id,
+            clubId: club.id,
+            role: 'president',
+            status: 'active',
+            academicYear: currentYear
           }
+        });
+
+        if (membership.role !== 'president' || membership.status !== 'active') {
+          await membership.update({ role: 'president', status: 'active' });
         }
-      }
 
-      // 2. Créer ou activer l'adhésion président
-      const [membership] = await ClubMember.findOrCreate({
-        where: {
-          userId: user.id,
-          clubId: club.id,
-          academicYear: currentYear
-        },
-        defaults: {
-          userId: user.id,
-          clubId: club.id,
-          role: 'president',
-          status: 'active',
-          academicYear: currentYear
+        // 3. Activer le drapeau is_president sur le compte utilisateur
+        if (!user.is_president) {
+          await user.update({ is_president: true });
         }
-      });
-
-      if (membership.role !== 'president' || membership.status !== 'active') {
-        await membership.update({ role: 'president', status: 'active' });
-      }
-
-      // 3. Activer le drapeau is_president sur le compte utilisateur
-      if (!user.is_president) {
-        await user.update({ is_president: true });
+      } catch (err) {
+        console.warn('[handlePresidentAssignment:assign] ClubMember error:', err);
       }
 
       // 4. Mettre à jour les informations du club avec le nom et coordonnées du président
@@ -215,20 +223,25 @@ export async function handlePresidentAssignment(club: Club, presidentIdRaw: unkn
 export async function listClubs() {
   const clubs = await Club.findAll({ order: [['createdAt', 'DESC']] });
   const currentYear = getCurrentAcademicYear();
-
-  const memberships = await ClubMember.findAll({
-    where: {
-      role: 'president',
-      status: 'active',
-      academicYear: currentYear
-    },
-    include: [{ model: User, as: 'user', attributes: ['id', 'username', 'email'] }]
-  });
+  const currentYears = [currentYear, currentYear.replace('/', '-')];
 
   const memberByClubId = new Map<number, PresidentMembershipInfo>();
-  memberships.forEach((m) => {
-    memberByClubId.set(m.clubId, m as unknown as PresidentMembershipInfo);
-  });
+  try {
+    const memberships = await ClubMember.findAll({
+      where: {
+        role: 'president',
+        status: 'active',
+        academicYear: { [Op.in]: currentYears }
+      },
+      include: [{ model: User, as: 'user', attributes: ['id', 'username', 'email'] }]
+    });
+
+    memberships.forEach((m) => {
+      memberByClubId.set(m.clubId, m as unknown as PresidentMembershipInfo);
+    });
+  } catch (err) {
+    console.warn('[listClubs] ClubMember query warning:', err);
+  }
 
   return clubs.map((c) => formatClub(c, memberByClubId.get(c.id)));
 }

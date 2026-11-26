@@ -3,16 +3,22 @@ import * as clubsService from '../services/clubs.service';
 import { sendSuccess, sendError } from '../utils/response';
 
 export const getAll = async (_req: Request, res: Response) => {
-  const data = await clubsService.listClubs();
-  return sendSuccess(res, data, { meta: { total: data.length } });
+  try {
+    const data = await clubsService.listClubs();
+    return sendSuccess(res, data, { meta: { total: data.length } });
+  } catch (err) {
+    console.error('[clubs.controller.getAll error]:', err);
+    return sendError(res, 500, 'SERVER_ERROR', err instanceof Error ? err.message : 'Erreur lors de la récupération des clubs');
+  }
 };
 
 export const create = async (req: Request, res: Response) => {
   try {
     const club = await clubsService.createClub(req.body, req.file);
     return sendSuccess(res, club, { status: 201, message: 'Club créé avec succès!' });
-  } catch {
-    return sendError(res, 500, 'SERVER_ERROR', 'Erreur lors de la création du club - Veuillez réessayer');
+  } catch (err) {
+    console.error('[clubs.controller.create error]:', err);
+    return sendError(res, 500, 'SERVER_ERROR', err instanceof Error ? err.message : 'Erreur lors de la création du club - Veuillez réessayer');
   }
 };
 
