@@ -34,3 +34,22 @@ export const adminMiddleware = (req: Request, res: Response, next: NextFunction)
     return res.status(403).json({ success: false, message: 'Accès administrateur requis' });
   }
 };
+
+export const optionalAuthMiddleware = (req: Request, _res: Response, next: NextFunction): void => {
+  try {
+    const cookieToken = req.cookies?.adei_token as string | undefined;
+    const authHeader = req.headers.authorization;
+    const headerToken = authHeader
+      ? (authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader)
+      : null;
+
+    const token = cookieToken || headerToken;
+    if (token) {
+      const decoded = jwt.verify(token, JWT_SECRET) as AuthUserPayload;
+      req.user = decoded;
+    }
+  } catch {
+    // Ignore invalid or expired token on optional routes
+  }
+  next();
+};

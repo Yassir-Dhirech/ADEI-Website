@@ -61,6 +61,21 @@ export interface EventItem {
   clubId?: number | null;
   submitter?: { id: number; username: string; email: string } | null;
   club?: { id: number; club: string; president: string } | null;
+  registrationsCount?: number;
+  isRegistered?: boolean;
+  registrations?: Array<{
+    id: number;
+    userId: number;
+    createdAt: string;
+    user?: {
+      id: number;
+      username: string;
+      email: string;
+      phone?: string | null;
+      filiere?: string | null;
+      classe?: string | null;
+    } | null;
+  }>;
 }
 
 export interface ClubItem {

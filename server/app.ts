@@ -30,6 +30,14 @@ if (env.isProduction || process.env.DATABASE_URL) {
     ALTER TABLE IF EXISTS clubs ADD COLUMN IF NOT EXISTS "pendingUpdatesSubmittedBy" INTEGER REFERENCES users(id) ON DELETE SET NULL;
     ALTER TABLE IF EXISTS clubs ADD COLUMN IF NOT EXISTS "pendingUpdatesAt" TIMESTAMP WITH TIME ZONE DEFAULT NULL;
     ALTER TABLE IF EXISTS filieres ADD COLUMN IF NOT EXISTS "drives" JSONB DEFAULT '{}';
+    CREATE TABLE IF NOT EXISTS event_registrations (
+      id SERIAL PRIMARY KEY,
+      "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      "eventId" INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+      "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+      UNIQUE ("userId", "eventId")
+    );
   `).catch((err: unknown) => {
     console.warn('[DB Auto-heal warning]:', err instanceof Error ? err.message : err);
   });

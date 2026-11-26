@@ -9,7 +9,8 @@ import {
 } from '../services/notification.service';
 
 export const getAll = async (req: Request, res: Response) => {
-  const { data, meta } = await eventsService.listEvents(req.query as Record<string, unknown>);
+  const userId = req.user?.id || req.user?.userId;
+  const { data, meta } = await eventsService.listEvents(req.query as Record<string, unknown>, userId);
   return sendSuccess(res, data, { meta: { ...meta } });
 };
 
@@ -29,6 +30,34 @@ export const getModerationEvents = async (_req: Request, res: Response) => {
     return sendSuccess(res, events);
   } catch {
     return sendError(res, 500, 'SERVER_ERROR', 'Erreur lors de la récupération des événements à modérer');
+  }
+};
+
+export const toggleRegistration = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id || req.user!.userId!;
+    const eventId = String(req.params.id);
+    const result = await eventsService.toggleEventRegistration(eventId, userId);
+    if (!result.ok) {
+      return sendError(res, result.status || 400, 'BAD_REQUEST', result.message || "Erreur lors de l'inscription");
+    }
+    return sendSuccess(res, { registered: result.registered, count: result.count }, {
+      message: result.registered
+        ? 'Votre inscription a bien été confirmée !'
+        : 'Votre désinscription a bien été prise en compte.'
+    });
+  } catch {
+    return sendError(res, 500, 'SERVER_ERROR', "Erreur lors de l'enregistrement de l'inscription");
+  }
+};
+
+export const getRegistrations = async (req: Request, res: Response) => {
+  try {
+    const eventId = String(req.params.id);
+    const attendees = await eventsService.getEventRegistrations(eventId);
+    return sendSuccess(res, attendees);
+  } catch {
+    return sendError(res, 500, 'SERVER_ERROR', "Erreur lors de la récupération des inscrits");
   }
 };
 

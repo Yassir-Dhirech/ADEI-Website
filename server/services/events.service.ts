@@ -1,4 +1,4 @@
-import { Event, Club } from '../models';
+import { Event, Club, User, EventRegistration } from '../models';
 import { getCachedData, setCachedData, clearCache } from '../utils/cache';
 import { pickFields } from '../utils/sanitize';
 import { parsePagination, buildPaginationMeta, PaginationMeta } from '../utils/pagination';
@@ -46,22 +46,38 @@ async function normalizeEventInput(
   return data;
 }
 
-export async function listEvents(query: Record<string, unknown> = {}): Promise<{ data: Event[]; meta: PaginationMeta; cached: boolean }> {
+export async function listEvents(
+  query: Record<string, unknown> = {},
+  currentUserId?: number
+): Promise<{ data: Array<Record<string, unknown>>; meta: PaginationMeta; cached: boolean }> {
   const { page, limit, offset } = parsePagination(query);
-  const cacheKey = `events:p${page}:l${limit}`;
-  const cached = getCachedData<{ data: Event[]; meta: PaginationMeta }>(cacheKey);
+  const cacheKey = `events:p${page}:l${limit}:u${currentUserId || 'anon'}`;
+  const cached = getCachedData<{ data: Array<Record<string, unknown>>; meta: PaginationMeta }>(cacheKey);
   if (cached) return { ...cached, cached: true };
 
   try {
     const { rows, count } = await Event.findAndCountAll({
       where: { status: 'approved' },
       order: [['order_display', 'ASC'], ['createdAt', 'DESC']],
-      include: [{ model: Club, as: 'club', attributes: ['id', 'club', 'president'], required: false }],
+      include: [
+        { model: Club, as: 'club', attributes: ['id', 'club', 'president'], required: false },
+        { model: EventRegistration, as: 'registrations', attributes: ['id', 'userId'], required: false }
+      ],
       limit,
       offset
     });
 
-    const result = { data: rows, meta: buildPaginationMeta(count, page, limit) };
+    const formatted = rows.map((ev) => {
+      const json = ev.toJSON() as Record<string, unknown>;
+      const regs = (json.registrations || []) as Array<{ id: number; userId: number }>;
+      return {
+        ...json,
+        registrationsCount: regs.length,
+        isRegistered: currentUserId ? regs.some((r) => r.userId === currentUserId) : false
+      };
+    });
+
+    const result = { data: formatted, meta: buildPaginationMeta(count, page, limit) };
     setCachedData(cacheKey, result);
     return { ...result, cached: false };
   } catch (err) {
@@ -72,7 +88,10 @@ export async function listEvents(query: Record<string, unknown> = {}): Promise<{
       limit,
       offset
     });
-    const result = { data: rows, meta: buildPaginationMeta(count, page, limit) };
+    const result = {
+      data: rows.map((r) => r.toJSON() as Record<string, unknown>),
+      meta: buildPaginationMeta(count, page, limit)
+    };
     return { ...result, cached: false };
   }
 }
@@ -125,8 +144,6 @@ export async function reorderEvent(id: string | number, direction: string): Prom
   clearCache('events');
   return { updated: true };
 }
-import { User } from '../models';
-
 export async function getEventById(id: string | number): Promise<Event | null> {
   return Event.findByPk(id, {
     include: [
@@ -149,8 +166,67 @@ export async function listModerationEvents(): Promise<Event[]> {
     order: [['createdAt', 'DESC']],
     include: [
       { model: Club, as: 'club', attributes: ['id', 'club', 'president'], required: false },
-      { model: User, as: 'submitter', attributes: ['id', 'username', 'email'], required: false }
+      { model: User, as: 'submitter', attributes: ['id', 'username', 'email'], required: false },
+      {
+        model: EventRegistration,
+        as: 'registrations',
+        attributes: ['id', 'userId', 'createdAt'],
+        include: [
+          {
+            model: User,
+            as: 'user',
+            attributes: ['id', 'username', 'email', 'phone', 'filiere', 'classe']
+          }
+        ]
+      }
     ]
+  });
+}
+
+export async function toggleEventRegistration(
+  eventId: string | number,
+  userId: number
+): Promise<{ ok: boolean; status?: number; message?: string; registered: boolean; count: number }> {
+  const event = await Event.findByPk(eventId);
+  if (!event) {
+    return { ok: false, status: 404, message: 'Événement non trouvé', registered: false, count: 0 };
+  }
+
+  const existing = await EventRegistration.findOne({
+    where: { eventId: Number(eventId), userId }
+  });
+
+  let registered = false;
+  if (existing) {
+    await existing.destroy();
+    registered = false;
+  } else {
+    await EventRegistration.create({
+      eventId: Number(eventId),
+      userId
+    });
+    registered = true;
+  }
+
+  const count = await EventRegistration.count({
+    where: { eventId: Number(eventId) }
+  });
+
+  clearCache('events');
+  return { ok: true, registered, count };
+}
+
+export async function getEventRegistrations(eventId: string | number) {
+  return EventRegistration.findAll({
+    where: { eventId: Number(eventId) },
+    include: [
+      {
+        model: User,
+        as: 'user',
+        attributes: ['id', 'username', 'email', 'phone', 'filiere', 'classe']
+      }
+    ],
+    order: [['createdAt', 'DESC']]
   });
 }
 

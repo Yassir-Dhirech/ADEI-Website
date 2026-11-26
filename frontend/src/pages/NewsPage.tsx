@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useSearchParams, Link } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   Search,
@@ -11,13 +11,17 @@ import {
   CalendarPlus,
   Clock,
   MapPin,
-  
   ArrowRight,
   Newspaper,
   Users,
   Layers,
-  Archive
+  Archive,
+  CheckCircle2,
+  Ticket,
+  Loader2
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
 import { apiRequest, getImageUrl } from '@/lib/api';
 import type { EventItem, NewsItem } from '@/types/api';
 import { PageHero, Modal, CardSkeletonGrid } from '@/components/ui';
@@ -141,6 +145,9 @@ function getGoogleCalendarUrl(ev: EventItem): string {
 }
 
 export function NewsPage() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
   const [searchParams, setSearchParams] = useSearchParams();
   const rawTab = searchParams.get('tab');
   const activeTab: FeedTab = rawTab === 'news' || rawTab === 'events' ? rawTab : 'all';
@@ -149,6 +156,37 @@ export function NewsPage() {
   const [timeFilter, setTimeFilter] = useState<'all' | 'upcoming' | 'past'>('all');
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
+
+  // Mutation d'inscription / désinscription en 1 clic
+  const registerMutation = useMutation({
+    mutationFn: async (eventId: number) => {
+      return apiRequest<{ registered: boolean; count: number }>(`/events/${eventId}/register`, {
+        method: 'POST'
+      });
+    },
+    onSuccess: (res, eventId) => {
+      const isReg = res.data?.registered;
+      const count = res.data?.count;
+      toast.success(
+        isReg
+          ? 'Votre inscription a été confirmée avec succès !'
+          : 'Votre désinscription a bien été prise en compte.'
+      );
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      setSelectedEvent((prev) =>
+        prev && prev.id === eventId
+          ? {
+              ...prev,
+              isRegistered: isReg,
+              registrationsCount: count
+            }
+          : prev
+      );
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de l'inscription");
+    }
+  });
 
   const newsQuery = useQuery({
     queryKey: ['news', 'unified'],
@@ -421,9 +459,16 @@ export function NewsPage() {
                       <Separator className="my-4" />
                       <div className="flex items-center justify-between text-xs font-semibold">
                         <span className={`inline-flex items-center gap-1 transition ${isPast ? 'text-zinc-500 group-hover:text-zinc-800 dark:group-hover:text-zinc-200' : 'text-red-600 group-hover:translate-x-0.5'}`}>
-                          {isPast ? "Consulter l'archive" : 'Détails & lieu'} <ArrowRight className="h-3.5 w-3.5" />
+                          {isPast ? "Consulter l'archive" : 'Détails & inscription'} <ArrowRight className="h-3.5 w-3.5" />
                         </span>
-                        {ev.organizer && <span className="truncate text-zinc-400">{ev.organizer}</span>}
+                        <div className="flex items-center gap-2">
+                          {ev.registrationsCount !== undefined && ev.registrationsCount > 0 && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 dark:text-red-400">
+                              <Users className="h-3 w-3" /> {ev.registrationsCount}
+                            </span>
+                          )}
+                          {ev.organizer && <span className="truncate text-zinc-400">{ev.organizer}</span>}
+                        </div>
                       </div>
                     </div>
                   </motion.article>
@@ -590,6 +635,54 @@ export function NewsPage() {
             <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
               {selectedEvent.description}
             </p>
+
+            {/* Section Billetterie & Inscription en 1 clic */}
+            <div className="flex flex-col gap-3 rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-800/40 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-0.5">
+                <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                  Participation &amp; Inscription
+                </p>
+                <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                  {selectedEvent.registrationsCount || 0} étudiant(s) ont déjà réservé leur place.
+                </p>
+              </div>
+
+              {selectedEvent.date && checkIsPast(selectedEvent.date, selectedEvent.time) ? (
+                <span className="rounded-xl bg-zinc-200/70 px-3.5 py-2 text-xs font-medium text-zinc-500 dark:bg-zinc-800">
+                  Inscriptions clôturées
+                </span>
+              ) : user ? (
+                <Button
+                  type="button"
+                  onClick={() => registerMutation.mutate(selectedEvent.id)}
+                  disabled={registerMutation.isPending}
+                  className={selectedEvent.isRegistered
+                    ? "h-10 gap-1.5 rounded-xl bg-emerald-600 px-4 text-xs font-bold text-white hover:bg-emerald-700"
+                    : "h-10 gap-1.5 rounded-xl bg-red-600 px-4 text-xs font-bold text-white hover:bg-red-700"
+                  }
+                >
+                  {registerMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : selectedEvent.isRegistered ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" /> Inscrit(e) ✓ (Annuler)
+                    </>
+                  ) : (
+                    <>
+                      <Ticket className="h-4 w-4" /> S'inscrire à l'événement
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Link
+                  to="/login"
+                  className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-red-600 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-red-700"
+                >
+                  Connectez-vous pour vous inscrire
+                </Link>
+              )}
+            </div>
+
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <a
                 href={getGoogleCalendarUrl(selectedEvent)}

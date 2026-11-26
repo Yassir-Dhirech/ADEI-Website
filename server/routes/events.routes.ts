@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import * as eventsController from '../controllers/events.controller';
 import { upload, validateUploadedFiles } from '../config/upload';
-import { authMiddleware, adminMiddleware } from '../middleware/auth';
+import { authMiddleware, adminMiddleware, optionalAuthMiddleware } from '../middleware/auth';
 import { asyncWrapper } from '../middleware/errorHandler';
 import { validate } from '../middleware/validate';
 import { eventCreateSchema, eventUpdateSchema } from '../validators/schemas';
@@ -13,8 +13,12 @@ const eventUpload = upload.fields([
   { name: 'document', maxCount: 1 }
 ]);
 
-// Route publique (événements validés uniquement)
-router.get('/', asyncWrapper(eventsController.getAll));
+// Route publique (événements validés uniquement, avec reconnaissance optionnelle de l'utilisateur connecté)
+router.get('/', optionalAuthMiddleware, asyncWrapper(eventsController.getAll));
+
+// Inscription étudiante (1 clic) & Consultation des inscrits (Admin / Organisateur)
+router.post('/:id/register', authMiddleware, asyncWrapper(eventsController.toggleRegistration));
+router.get('/:id/registrations', authMiddleware, adminMiddleware, asyncWrapper(eventsController.getRegistrations));
 
 // Espace Président : consulter ses propres événements soumis
 router.get('/my-events', authMiddleware, asyncWrapper(eventsController.getMyEvents));
