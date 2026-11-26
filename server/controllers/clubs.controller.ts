@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import * as clubsService from '../services/clubs.service';
 import { sendSuccess, sendError } from '../utils/response';
+import { logAction } from '../services/audit.service';
 
 export const getAll = async (_req: Request, res: Response) => {
   try {
@@ -111,6 +112,20 @@ export const approveUpdate = async (req: Request, res: Response) => {
       });
     }
 
+    const currentAdminId = req.user?.id || req.user?.userId;
+    void logAction({
+      userId: currentAdminId ? Number(currentAdminId) : null,
+      action: 'CLUB_PROPOSAL_APPROVE',
+      resourceType: 'club',
+      resourceId: clubId,
+      details: {
+        clubName: result.club?.club,
+        approvedBy: currentAdminId
+      },
+      ipAddress: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress,
+      userAgent: req.headers['user-agent']
+    });
+
     return sendSuccess(res, result.club, {
       message: 'Modifications validées et publiées sur la fiche officielle du club !'
     });
@@ -137,6 +152,21 @@ export const rejectUpdate = async (req: Request, res: Response) => {
         rejectionReason: reason
       });
     }
+
+    const currentAdminId = req.user?.id || req.user?.userId;
+    void logAction({
+      userId: currentAdminId ? Number(currentAdminId) : null,
+      action: 'CLUB_PROPOSAL_REJECT',
+      resourceType: 'club',
+      resourceId: clubId,
+      details: {
+        clubName: result.club?.club,
+        rejectionReason: reason || 'Non précisé',
+        rejectedBy: currentAdminId
+      },
+      ipAddress: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress,
+      userAgent: req.headers['user-agent']
+    });
 
     return sendSuccess(res, null, {
       message: 'Modifications refusées. Le président a été notifié par email.'

@@ -10,6 +10,7 @@ import {
   Award,
   UserCog,
   MessageSquareCheck,
+  History,
   ArrowLeft
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
@@ -37,7 +38,8 @@ const NAV_GROUPS = [
     items: [
       { to: '/admin/adei-members', label: 'Membres ADEI', icon: Shield, end: false },
       { to: '/admin/adei-roles', label: 'Rôles ADEI', icon: Award, end: false },
-      { to: '/admin/users', label: 'Utilisateurs', icon: UserCog, end: false }
+      { to: '/admin/users', label: 'Utilisateurs', icon: UserCog, end: false },
+      { to: '/admin/audit-logs', label: 'Journal d’Audit', icon: History, end: false }
     ]
   }
 ];

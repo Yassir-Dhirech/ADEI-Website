@@ -16,6 +16,7 @@ import Section from './Section';
 import ClubMember from './ClubMember';
 import EventRegistration from './EventRegistration';
 import Otp from './Otp';
+import AuditLog from './AuditLog';
 
 // Associations
 Feedback.hasMany(FeedbackLike, { foreignKey: 'feedbackId', as: 'likes' });
@@ -64,6 +65,9 @@ Club.hasMany(Event, { foreignKey: 'clubId', as: 'events' });
 User.hasMany(Feedback, { foreignKey: 'userId', as: 'feedbacks' });
 Feedback.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+User.hasMany(AuditLog, { foreignKey: 'userId', as: 'auditLogs' });
+AuditLog.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
 export {
   User,
   News,
@@ -82,5 +86,6 @@ export {
   ClubMember,
   EventRegistration,
   Otp,
+  AuditLog,
   sequelize
 };

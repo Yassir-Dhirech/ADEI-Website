@@ -239,6 +239,14 @@ export function ClubPresidentPage() {
     ]);
 
     exportToCsv(`inscrits-${ev.title.replace(/[^a-zA-Z0-9]/g, '_')}`, headers, rows);
+    void apiRequest('/audit/log-export', {
+      method: 'POST',
+      body: JSON.stringify({
+        eventId: ev.id,
+        eventTitle: ev.title,
+        count: ev.registrations.length
+      })
+    }).catch(() => {});
     toast.success('Liste exportée en CSV avec succès !');
   };
 

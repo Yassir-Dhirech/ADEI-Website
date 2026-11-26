@@ -20,6 +20,7 @@ import { ClubPresidentPage } from './pages/ClubPresidentPage';
 import { EventsAdminPage } from './pages/admin/EventsAdminPage';
 import { ClubsAdminPage } from './pages/admin/ClubsAdminPage';
 import { FilieresAdminPage } from './pages/admin/FilieresAdminPage';
+import { AdminAuditLogsPage } from './pages/admin/AdminAuditLogsPage';
 
 export default function App() {
   return (
@@ -161,6 +162,7 @@ export default function App() {
               }
             />
             <Route path="users" element={<UsersAdminPage />} />
+            <Route path="audit-logs" element={<AdminAuditLogsPage />} />
             <Route path="feedbacks" element={<FeedbacksAdminPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

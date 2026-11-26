@@ -17,6 +17,7 @@ import newsRoutes from './routes/news.routes';
 import eventsRoutes from './routes/events.routes';
 import adeiRolesRoutes from './routes/adeiRoles.routes';
 import academicRoutes from './routes/academic.routes';
+import auditRoutes from './routes/audit.routes';
 
 const app = express();
 
@@ -95,6 +96,7 @@ app.use('/api/filieres', filieresRoutes);
 app.use('/api/partners', partnersRoutes);
 app.use('/api/adei-roles', adeiRolesRoutes);
 app.use('/api/academic', academicRoutes);
+app.use('/api/audit', auditRoutes);
 
 app.get('/', (_req, res) => {
   res.json({

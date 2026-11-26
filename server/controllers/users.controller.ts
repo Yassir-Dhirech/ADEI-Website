@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import * as usersService from '../services/users.service';
 import { sendSuccess, sendError } from '../utils/response';
 import { sendAccountApprovalEmail } from '../services/otp.service';
+import { logAction } from '../services/audit.service';
 
 export const getMe = async (req: Request, res: Response) => {
   try {
@@ -97,6 +98,25 @@ export const updateStatus = async (req: Request, res: Response) => {
     if (status === 'active' && user.email) {
       void sendAccountApprovalEmail(user.email, user.username);
     }
+
+    const currentAdminId = req.user?.id || req.user?.userId;
+    void logAction({
+      userId: currentAdminId ? Number(currentAdminId) : null,
+      action: status === 'active' ? 'USER_APPROVE' : (status === 'rejected' ? 'USER_REJECT' : 'USER_STATUS_UPDATE'),
+      resourceType: 'user',
+      resourceId: user.id,
+      details: {
+        targetUsername: user.username,
+        targetEmail: user.email,
+        newStatus: status,
+        newRole: role || user.role,
+        is_president: user.is_president,
+        is_representant: user.is_representant
+      },
+      ipAddress: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress,
+      userAgent: req.headers['user-agent']
+    });
+
     return sendSuccess(res, user, { message: `Compte mis à jour avec succès : ${status}` });
 
   } catch {

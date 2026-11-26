@@ -7,6 +7,7 @@ import {
   notifyAdminNewEventSubmission,
   notifyPresidentEventDecision
 } from '../services/notification.service';
+import { logAction } from '../services/audit.service';
 
 export const getAll = async (req: Request, res: Response) => {
   const userId = req.user?.id || req.user?.userId;
@@ -238,6 +239,20 @@ export const updateStatus = async (req: Request, res: Response) => {
         rejectionReason
       });
     }
+
+    void logAction({
+      userId: Number(adminId),
+      action: status === 'approved' ? 'EVENT_APPROVE' : (status === 'rejected' ? 'EVENT_REJECT' : 'EVENT_STATUS_UPDATE'),
+      resourceType: 'event',
+      resourceId: eventId,
+      details: {
+        eventTitle: result.event?.title,
+        newStatus: status,
+        rejectionReason
+      },
+      ipAddress: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress,
+      userAgent: req.headers['user-agent']
+    });
 
     return sendSuccess(res, result.event, {
       message: status === 'approved'
