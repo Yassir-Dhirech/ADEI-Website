@@ -1,7 +1,10 @@
 const request = require('supertest');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const app = require('../app');
+const env = require('../config/env');
 const { resetTestDatabase, sequelize } = require('./setup');
-const { User, Club, ClubMember, Event } = require('../models');
+const { User, Club, ClubMember, Event, EventRegistration } = require('../models');
 const {
   getCurrentAcademicYear,
   canManageClub,
@@ -267,5 +270,141 @@ describe('4. Visibilité publique des événements (Filtre status = approved)', 
     const approvedEvent = res.body.data.find((e) => e.title.includes('Forum Entreprises'));
     expect(approvedEvent).toBeDefined();
     expect(approvedEvent.status).toBe('approved');
+  });
+});
+
+describe('5. Isolation des listes d inscrits (Rosters) et Déduplication des Invités', () => {
+  let pres1User;
+  let pres1Token;
+  let pres2User;
+  let pres2Token;
+  let eventClub1;
+  let eventClub2;
+
+  beforeAll(async () => {
+    const passwordHash = await bcrypt.hash('PresPassword123!', 10);
+
+    // Président Club 1
+    pres1User = await User.create({
+      username: 'president_cit',
+      email: 'pres_cit@ensaf.ma',
+      password: passwordHash,
+      role: 'user',
+      is_president: true,
+      status: 'active'
+    });
+
+    await ClubMember.create({
+      userId: pres1User.id,
+      clubId: club1.id,
+      role: 'president',
+      status: 'active',
+      academicYear: currentYear
+    });
+
+    pres1Token = jwt.sign(
+      { id: pres1User.id, username: pres1User.username, email: pres1User.email, role: 'user' },
+      env.JWT_SECRET || 'test_secret_for_jwt_signing_min_32_characters'
+    );
+
+    // Président Club 2
+    pres2User = await User.create({
+      username: 'president_musique',
+      email: 'pres_musique@ensaf.ma',
+      password: passwordHash,
+      role: 'user',
+      is_president: true,
+      status: 'active'
+    });
+
+    await ClubMember.create({
+      userId: pres2User.id,
+      clubId: club2.id,
+      role: 'president',
+      status: 'active',
+      academicYear: currentYear
+    });
+
+    pres2Token = jwt.sign(
+      { id: pres2User.id, username: pres2User.username, email: pres2User.email, role: 'user' },
+      env.JWT_SECRET || 'test_secret_for_jwt_signing_min_32_characters'
+    );
+
+    // Événement Club 1
+    eventClub1 = await Event.create({
+      title: 'Hackathon CIT 2026',
+      description: 'Hackathon IA',
+      date: '2026-11-30',
+      time: '10:00',
+      location: 'Laboratoire Informatique',
+      clubId: club1.id,
+      organizer: 'Club Informatique (CIT)',
+      status: 'approved'
+    });
+
+    // Événement Club 2
+    eventClub2 = await Event.create({
+      title: 'Concert Acoustique Musique 2026',
+      description: 'Concert des talents',
+      date: '2026-12-05',
+      time: '18:00',
+      location: 'Amphi B',
+      clubId: club2.id,
+      organizer: 'Club Musique & Arts',
+      status: 'approved'
+    });
+  });
+
+  test('Le président du Club 1 peut consulter les inscrits de son propre événement (200)', async () => {
+    const res = await request(app)
+      .get(`/api/events/${eventClub1.id}/registrations`)
+      .set('Authorization', `Bearer ${pres1Token}`);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
+  test('Le président du Club 1 NE PEUT PAS consulter les inscrits de l événement du Club 2 (403 Forbidden)', async () => {
+    const res = await request(app)
+      .get(`/api/events/${eventClub2.id}/registrations`)
+      .set('Authorization', `Bearer ${pres1Token}`);
+
+    expect(res.statusCode).toBe(403);
+    expect(res.body.success).toBe(false);
+  });
+
+  test('Inscription invité : la 1ère soumission réussit (200), la 2ème avec le même email est bloquée (400)', async () => {
+    const guestData = {
+      guestName: 'Karim Tazi',
+      guestEmail: 'karim.tazi@gmail.com',
+      guestPhone: '0612345678',
+      guestFiliere: 'GI1'
+    };
+
+    // 1ère inscription
+    const res1 = await request(app)
+      .post(`/api/events/${eventClub1.id}/register-guest`)
+      .send(guestData);
+
+    expect(res1.statusCode).toBe(200);
+    expect(res1.body.success).toBe(true);
+
+    // 2ème inscription identique : doit être rejetée avec 400
+    const res2 = await request(app)
+      .post(`/api/events/${eventClub1.id}/register-guest`)
+      .send(guestData);
+
+    expect(res2.statusCode).toBe(400);
+    expect(res2.body.success).toBe(false);
+    expect(res2.body.error.message || res2.body.message).toContain('existe déjà');
+
+    // Vérification en base : exactement 1 seule ligne créée
+    const rowCount = await EventRegistration.count({
+      where: {
+        eventId: eventClub1.id,
+        guestEmail: 'karim.tazi@gmail.com'
+      }
+    });
+    expect(rowCount).toBe(1);
   });
 });

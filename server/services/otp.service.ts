@@ -1,11 +1,17 @@
+import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { Op } from 'sequelize';
 import { Otp } from '../models';
 
+export function hashOtp(code: string): string {
+  const salt = process.env.JWT_SECRET || 'adei_otp_hmac_secret_key';
+  return crypto.createHmac('sha256', salt).update(code.trim()).digest('hex');
+}
+
 export async function generateAndSendOtp(email: string): Promise<{ success: boolean; message: string; devOtp?: string }> {
   const normalizedEmail = email.trim().toLowerCase();
   const code = String(Math.floor(100000 + Math.random() * 900000));
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
   // Supprimer les anciens codes non vérifiés pour cette adresse
   await Otp.destroy({
@@ -15,12 +21,13 @@ export async function generateAndSendOtp(email: string): Promise<{ success: bool
     }
   });
 
-  // Sauvegarder le nouveau code dans Neon PostgreSQL
+  // Sauvegarder le hash HMAC-SHA256 du code dans Neon PostgreSQL
   await Otp.create({
     email: normalizedEmail,
-    code,
+    code: hashOtp(code),
     expires_at: expiresAt,
-    verified: false
+    verified: false,
+    attempts: 0
   });
 
   const hasSmtp = Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
@@ -73,7 +80,7 @@ export async function generateAndSendOtp(email: string): Promise<{ success: bool
 
             <!-- Note de sécurité sobre -->
             <p style="margin: 0 0 10px; font-size: 12px; line-height: 1.6; color: #64748b; text-align: center;">
-              Ce code expire dans <strong>10 minutes</strong>. Par mesure de confidentialité, ne le transmettez à personne. Aucun membre de l'ADEI ne vous demandera votre code de confirmation.
+              Ce code expire dans <strong>5 minutes</strong>. Par mesure de confidentialité, ne le transmettez à personne. Aucun membre de l'ADEI ne vous demandera votre code de confirmation.
             </p>
 
             <!-- Signature & Pied de page -->
@@ -124,7 +131,6 @@ export async function verifyOtpCode(email: string, code: string): Promise<boolea
   const record = await Otp.findOne({
     where: {
       email: normalizedEmail,
-      code: trimmedCode,
       verified: false,
       expires_at: { [Op.gt]: new Date() }
     },
@@ -132,6 +138,20 @@ export async function verifyOtpCode(email: string, code: string): Promise<boolea
   });
 
   if (!record) {
+    return false;
+  }
+
+  // Protection contre les attaques par force brute : max 5 tentatives
+  if ((record.attempts || 0) >= 5) {
+    await record.destroy(); // Bloque et invalide définitivement le code
+    return false;
+  }
+
+  const expectedHash = hashOtp(trimmedCode);
+  const isMatch = record.code === expectedHash || record.code === trimmedCode;
+
+  if (!isMatch) {
+    await record.increment('attempts');
     return false;
   }
 

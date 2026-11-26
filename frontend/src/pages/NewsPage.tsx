@@ -162,6 +162,7 @@ export function NewsPage() {
   const [guestEmail, setGuestEmail] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
   const [guestFiliere, setGuestFiliere] = useState('Génie Informatique');
+  const [guestConsent, setGuestConsent] = useState(false);
   const [guestRegisteredEvents, setGuestRegisteredEvents] = useState<number[]>([]);
 
   // Mutation d'inscription / désinscription en 1 clic
@@ -807,15 +808,37 @@ export function NewsPage() {
                         <option value="Autre / Invité">Autre / Invité extérieur</option>
                       </select>
                     </div>
+
+                    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 p-3 space-y-2">
+                      <div className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          id="guest-cndp-consent"
+                          checked={guestConsent}
+                          onChange={(e) => setGuestConsent(e.target.checked)}
+                          className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                        />
+                        <label htmlFor="guest-cndp-consent" className="text-[11px] leading-tight text-zinc-600 dark:text-zinc-400 select-none cursor-pointer">
+                          J'accepte le traitement de mes coordonnées pour la gestion de cet événement (Loi 09-08).
+                        </label>
+                      </div>
+                      <p className="text-[10px] text-zinc-400 dark:text-zinc-500 leading-normal pl-5">
+                        Conformément à la loi 09-08, les données sont collectées à usage exclusif de l'émargement et de l'organisation par l'ADEI et le club hôte, sans cession à des tiers.
+                      </p>
+                    </div>
                   </div>
 
                   <div className="flex justify-end pt-1">
                     <Button
                       type="button"
-                      disabled={guestRegisterMutation.isPending || !guestName.trim() || !guestEmail.trim() || !guestPhone.trim()}
+                      disabled={guestRegisterMutation.isPending || !guestName.trim() || !guestEmail.trim() || !guestPhone.trim() || !guestConsent}
                       onClick={() => {
                         if (!guestName.trim() || !guestEmail.trim() || !guestPhone.trim()) {
                           toast.error('Veuillez renseigner votre nom, email et téléphone.');
+                          return;
+                        }
+                        if (!guestConsent) {
+                          toast.error('Veuillez accepter la mention relative à la protection des données (Loi 09-08).');
                           return;
                         }
                         guestRegisterMutation.mutate({

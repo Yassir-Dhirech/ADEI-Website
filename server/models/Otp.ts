@@ -7,11 +7,12 @@ export interface OtpAttributes {
   code: string;
   expires_at: Date;
   verified: boolean;
+  attempts?: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-export type OtpCreationAttributes = Optional<OtpAttributes, 'id' | 'verified'>;
+export type OtpCreationAttributes = Optional<OtpAttributes, 'id' | 'verified' | 'attempts'>;
 
 export class Otp extends Model<OtpAttributes, OtpCreationAttributes> implements OtpAttributes {
   declare id: number;
@@ -19,6 +20,7 @@ export class Otp extends Model<OtpAttributes, OtpCreationAttributes> implements 
   declare code: string;
   declare expires_at: Date;
   declare verified: boolean;
+  declare attempts: number;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 }
@@ -27,9 +29,10 @@ Otp.init(
   {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     email: { type: DataTypes.STRING(255), allowNull: false },
-    code: { type: DataTypes.STRING(10), allowNull: false },
+    code: { type: DataTypes.STRING(255), allowNull: false },
     expires_at: { type: DataTypes.DATE, allowNull: false },
-    verified: { type: DataTypes.BOOLEAN, defaultValue: false }
+    verified: { type: DataTypes.BOOLEAN, defaultValue: false },
+    attempts: { type: DataTypes.INTEGER, defaultValue: 0, allowNull: false }
   },
   {
     sequelize,

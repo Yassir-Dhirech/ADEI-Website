@@ -1,4 +1,5 @@
 import { registerSchema, eventGuestRegisterSchema } from '../validators/schemas';
+import { hashOtp } from '../services/otp.service';
 
 describe('Contrôles de Sécurité — Validation des Inscriptions et Protection des Rôles', () => {
   const validRegistrationPayload = {
@@ -105,6 +106,19 @@ describe('Contrôles de Sécurité — Validation des Inscriptions et Protection
       expect(sanitizeCsvCell('Amine Bennani')).toBe('"Amine Bennani"');
       expect(sanitizeCsvCell('Club "Robotique" ENSA')).toBe('"Club ""Robotique"" ENSA"');
       expect(sanitizeCsvCell(null)).toBe('""');
+    });
+  });
+
+  describe('Durcissement des OTP (HMAC-SHA256, expiration courte, limitation des essais)', () => {
+    test('hashOtp génère une empreinte HMAC-SHA256 hexadécimale de 64 caractères déterministe', () => {
+      const hash1 = hashOtp('123456');
+      const hash2 = hashOtp('123456');
+      const hash3 = hashOtp('654321');
+
+      expect(hash1).toHaveLength(64);
+      expect(/^[a-f0-9]{64}$/.test(hash1)).toBe(true);
+      expect(hash1).toBe(hash2);
+      expect(hash1).not.toBe(hash3);
     });
   });
 });
