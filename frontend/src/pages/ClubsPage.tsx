@@ -79,7 +79,13 @@ export function ClubsPage() {
                   </Avatar>
                   <div className="min-w-0">
                     <h2 className="truncate text-lg font-extrabold group-hover:text-red-600">{c.club}</h2>
-                    <p className="truncate text-xs text-zinc-500">Président : {c.president}</p>
+                    <p className="truncate text-xs text-zinc-500">
+                      {c.president && c.president !== 'Non assigné pour le moment' ? (
+                        <>Président : <span className="font-medium text-zinc-700 dark:text-zinc-300">{c.president}</span></>
+                      ) : (
+                        <span className="italic text-zinc-400">Non assigné pour le moment</span>
+                      )}
+                    </p>
                   </div>
                 </div>
 
@@ -112,11 +118,31 @@ export function ClubsPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
               <img src={getImageUrl(selected.image)} alt={selected.club} className="h-20 w-20 rounded-2xl border border-zinc-200 object-cover dark:border-zinc-700" />
               <div className="space-y-1 text-xs text-zinc-500">
-                <p className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  {selected.president} <span className="font-normal text-zinc-500">({selected.annees_etude})</span>
-                </p>
-                <p className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-red-600" /> {selected.email}</p>
-                <p className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-red-600" /> {selected.tel}</p>
+                {selected.president && selected.president !== 'Non assigné pour le moment' ? (
+                  <>
+                    <p className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                      {selected.president}{' '}
+                      {selected.annees_etude && selected.annees_etude !== 'Non spécifié' && (
+                        <span className="font-normal text-zinc-500">({selected.annees_etude})</span>
+                      )}
+                    </p>
+                    {selected.email && (
+                      <p className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-red-600" /> {selected.email}</p>
+                    )}
+                    {selected.tel && selected.tel !== '—' && (
+                      <p className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-red-600" /> {selected.tel}</p>
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold italic text-zinc-500">
+                      Présidence : Non assigné pour le moment
+                    </p>
+                    {selected.email && (
+                      <p className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-red-600" /> {selected.email}</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

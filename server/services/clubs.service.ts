@@ -1,6 +1,10 @@
-import { Club } from '../models';
+import { Op } from 'sequelize';
+import { Club, ClubMember, User } from '../models';
 import { pickFields } from '../utils/sanitize';
 import { storageService } from './storage.service';
+import { getCurrentAcademicYear } from './permissions.service';
+
+export const NOT_ASSIGNED_PRESIDENT = 'Non assigné pour le moment';
 
 function parseJsonList(value: unknown): string[] {
   if (!value) return [];
@@ -15,14 +19,23 @@ function parseJsonList(value: unknown): string[] {
   }
 }
 
-function formatClub(club: Club) {
+export interface PresidentMembershipInfo {
+  userId: number;
+  user?: {
+    id: number;
+    username: string;
+    email: string;
+  } | null;
+}
+
+export function formatClub(club: Club, presidentMembership?: PresidentMembershipInfo | null) {
   return {
     id: club.id,
     club: club.club,
-    president: club.president,
-    annees_etude: club.annees_etude,
-    tel: club.tel,
-    email: club.email,
+    president: club.president || NOT_ASSIGNED_PRESIDENT,
+    annees_etude: club.annees_etude || 'Non spécifié',
+    tel: club.tel || '—',
+    email: club.email || 'contact@adei-ensaf.ma',
     website: club.website || '',
     image: club.image || '',
     description: club.description || '',
@@ -32,6 +45,17 @@ function formatClub(club: Club) {
     facebook: club.facebook || '',
     instagram: club.instagram || '',
     linkedin: club.linkedin || '',
+    pendingUpdates: club.pendingUpdates || null,
+    pendingUpdatesSubmittedBy: club.pendingUpdatesSubmittedBy || null,
+    pendingUpdatesAt: club.pendingUpdatesAt || null,
+    presidentId: presidentMembership?.userId || null,
+    presidentUser: presidentMembership?.user
+      ? {
+          id: presidentMembership.user.id,
+          username: presidentMembership.user.username,
+          email: presidentMembership.user.email
+        }
+      : null,
     createdAt: club.createdAt,
     updatedAt: club.updatedAt,
     socialMedia: {
@@ -59,21 +83,205 @@ async function normalizeClubInput(
   return data;
 }
 
+/**
+ * Gère l'assignation ou la désassignation du président d'un club
+ */
+export async function handlePresidentAssignment(club: Club, presidentIdRaw: unknown) {
+  const currentYear = getCurrentAcademicYear();
+
+  // Cas : Désassignation (Non assigné pour le moment)
+  if (
+    presidentIdRaw === 'none' ||
+    presidentIdRaw === '' ||
+    presidentIdRaw === null ||
+    presidentIdRaw === 0 ||
+    presidentIdRaw === '0'
+  ) {
+    const oldPresidents = await ClubMember.findAll({
+      where: {
+        clubId: club.id,
+        role: 'president',
+        status: 'active'
+      }
+    });
+
+    if (oldPresidents.length > 0) {
+      await ClubMember.update(
+        { status: 'left' },
+        {
+          where: {
+            clubId: club.id,
+            role: 'president',
+            status: 'active'
+          }
+        }
+      );
+
+      for (const m of oldPresidents) {
+        const otherCount = await ClubMember.count({
+          where: {
+            userId: m.userId,
+            role: 'president',
+            status: 'active'
+          }
+        });
+        if (otherCount === 0) {
+          await User.update({ is_president: false }, { where: { id: m.userId } });
+        }
+      }
+    }
+
+    await club.update({ president: NOT_ASSIGNED_PRESIDENT });
+    return;
+  }
+
+  // Cas : Assignation d'un utilisateur
+  const parsedId = Number(presidentIdRaw);
+  if (!Number.isNaN(parsedId) && parsedId > 0) {
+    const user = await User.findByPk(parsedId);
+    if (user) {
+      // 1. Désactiver les anciens présidents de ce club
+      const previousActive = await ClubMember.findAll({
+        where: {
+          clubId: club.id,
+          role: 'president',
+          status: 'active',
+          userId: { [Op.ne]: user.id }
+        }
+      });
+
+      if (previousActive.length > 0) {
+        await ClubMember.update(
+          { status: 'left' },
+          {
+            where: {
+              clubId: club.id,
+              role: 'president',
+              status: 'active',
+              userId: { [Op.ne]: user.id }
+            }
+          }
+        );
+
+        for (const prev of previousActive) {
+          const otherCount = await ClubMember.count({
+            where: {
+              userId: prev.userId,
+              role: 'president',
+              status: 'active'
+            }
+          });
+          if (otherCount === 0) {
+            await User.update({ is_president: false }, { where: { id: prev.userId } });
+          }
+        }
+      }
+
+      // 2. Créer ou activer l'adhésion président
+      const [membership] = await ClubMember.findOrCreate({
+        where: {
+          userId: user.id,
+          clubId: club.id,
+          academicYear: currentYear
+        },
+        defaults: {
+          userId: user.id,
+          clubId: club.id,
+          role: 'president',
+          status: 'active',
+          academicYear: currentYear
+        }
+      });
+
+      if (membership.role !== 'president' || membership.status !== 'active') {
+        await membership.update({ role: 'president', status: 'active' });
+      }
+
+      // 3. Activer le drapeau is_president sur le compte utilisateur
+      if (!user.is_president) {
+        await user.update({ is_president: true });
+      }
+
+      // 4. Mettre à jour les informations du club avec le nom et email du président
+      await club.update({
+        president: user.username,
+        email: club.email && club.email !== 'contact@adei-ensaf.ma' ? club.email : user.email
+      });
+    }
+  }
+}
+
 export async function listClubs() {
   const clubs = await Club.findAll({ order: [['createdAt', 'DESC']] });
-  return clubs.map(formatClub);
+  const currentYear = getCurrentAcademicYear();
+
+  const memberships = await ClubMember.findAll({
+    where: {
+      role: 'president',
+      status: 'active',
+      academicYear: currentYear
+    },
+    include: [{ model: User, as: 'user', attributes: ['id', 'username', 'email'] }]
+  });
+
+  const memberByClubId = new Map<number, PresidentMembershipInfo>();
+  memberships.forEach((m) => {
+    memberByClubId.set(m.clubId, m as unknown as PresidentMembershipInfo);
+  });
+
+  return clubs.map((c) => formatClub(c, memberByClubId.get(c.id)));
 }
 
 export async function createClub(body: Record<string, unknown>, file?: Express.Multer.File): Promise<Club> {
   const input = await normalizeClubInput(body, file);
-  return Club.create(input);
+
+  // Valeurs par défaut pour respecter les contraintes de base
+  if (!input.club || String(input.club).trim() === '') {
+    input.club = 'Nouveau Club';
+  }
+  if (!input.president || String(input.president).trim() === '') {
+    input.president = NOT_ASSIGNED_PRESIDENT;
+  }
+  if (!input.annees_etude || String(input.annees_etude).trim() === '') {
+    input.annees_etude = 'Non spécifié';
+  }
+  if (!input.tel || String(input.tel).trim() === '') {
+    input.tel = '—';
+  }
+  if (!input.email || String(input.email).trim() === '') {
+    input.email = 'contact@adei-ensaf.ma';
+  }
+
+  const presidentIdRaw = body.presidentId ?? (input as Record<string, unknown>).presidentId;
+  delete (input as Record<string, unknown>).presidentId;
+
+  const club = await Club.create(input);
+
+  if (presidentIdRaw !== undefined) {
+    await handlePresidentAssignment(club, presidentIdRaw);
+  }
+
+  return club;
 }
 
-export async function updateClub(id: string | number, body: Record<string, unknown>, file?: Express.Multer.File): Promise<Club | null> {
+export async function updateClub(
+  id: string | number,
+  body: Record<string, unknown>,
+  file?: Express.Multer.File
+): Promise<Club | null> {
   const club = await Club.findByPk(id);
   if (!club) return null;
+
   const input = await normalizeClubInput(body, file, club);
+  const presidentIdRaw = body.presidentId ?? (input as Record<string, unknown>).presidentId;
+  delete (input as Record<string, unknown>).presidentId;
+
   await club.update(input);
+
+  if (presidentIdRaw !== undefined) {
+    await handlePresidentAssignment(club, presidentIdRaw);
+  }
+
   return club;
 }
 
@@ -81,13 +289,10 @@ export async function deleteClub(id: string | number): Promise<boolean> {
   const club = await Club.findByPk(id);
   if (!club) return false;
   if (club.image) await storageService.deleteFile(club.image);
+  await ClubMember.destroy({ where: { clubId: club.id } });
   await club.destroy();
   return true;
 }
-
-import { Op } from 'sequelize';
-import { ClubMember, User } from '../models';
-import { getCurrentAcademicYear } from './permissions.service';
 
 /**
  * Retrouve le club associé à un utilisateur président ou gestionnaire
@@ -117,7 +322,6 @@ export async function findClubForUser(userId: number): Promise<Club | null> {
   const allClubs = await Club.findAll();
   for (const c of allClubs) {
     if (user.classe && user.classe.toLowerCase().includes(c.club.toLowerCase())) {
-      // Auto-liaison dans club_members pour les prochaines requêtes
       await ClubMember.findOrCreate({
         where: { userId: user.id, clubId: c.id, academicYear: currentYear },
         defaults: { role: 'president', status: 'active', academicYear: currentYear, userId: user.id, clubId: c.id }
@@ -142,7 +346,6 @@ export async function proposeClubUpdate(
   if (!club) return { ok: false, status: 404, message: 'Club non trouvé' };
 
   const input = await normalizeClubInput(body, file, club);
-  // On ne modifie pas les champs publics immédiatement, on les stocke dans pendingUpdates
   await club.update({
     pendingUpdates: input,
     pendingUpdatesSubmittedBy: userId,

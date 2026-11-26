@@ -18,6 +18,7 @@ import { FeedbacksAdminPage } from '@/pages/admin/FeedbacksAdminPage';
 import { UsersAdminPage } from './pages/admin/UsersAdminPage';
 import { ClubPresidentPage } from './pages/ClubPresidentPage';
 import { EventsAdminPage } from './pages/admin/EventsAdminPage';
+import { ClubsAdminPage } from './pages/admin/ClubsAdminPage';
 
 export default function App() {
   return (
@@ -69,32 +70,7 @@ export default function App() {
               }
             />
             <Route path="events" element={<EventsAdminPage />} />
-            <Route
-              path="clubs"
-              element={
-                <ResourceAdminPage
-                  title="Clubs"
-                  endpoint="/clubs"
-                  queryKey="clubs"
-                  titleField="club"
-                  subtitleField="president"
-                  multipart
-                  fields={[
-                    { name: 'club', label: 'Nom du club', required: true },
-                    { name: 'president', label: 'Président', required: true },
-                    { name: 'annees_etude', label: "Année d'étude", required: true },
-                    { name: 'tel', label: 'Téléphone', required: true },
-                    { name: 'email', label: 'Email', type: 'email', required: true },
-                    { name: 'members', label: 'Nombre de membres', type: 'number' },
-                    { name: 'website', label: 'Site web' },
-                    { name: 'instagram', label: 'Instagram' },
-                    { name: 'linkedin', label: 'LinkedIn' },
-                    { name: 'image', label: 'Logo du club (JPG/PNG/WebP)', type: 'file', accept: 'image/*' },
-                    { name: 'description', label: 'Description', type: 'textarea' }
-                  ]}
-                />
-              }
-            />
+            <Route path="clubs" element={<ClubsAdminPage />} />
             <Route
               path="filieres"
               element={

@@ -81,6 +81,9 @@ export interface ClubItem {
   linkedin: string;
   pendingUpdates?: Record<string, unknown> | null;
   pendingUpdatesAt?: string | null;
+  pendingUpdatesSubmittedBy?: number | null;
+  presidentId?: number | null;
+  presidentUser?: { id: number; username: string; email: string } | null;
 }
 
 export interface FiliereItem {
