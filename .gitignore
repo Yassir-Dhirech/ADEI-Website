@@ -32,5 +32,3 @@ backups/*
 *.sql.gz
 *.dump
 
-# --- Local Documentation ---
-PROJECT_ARCHITECTURE_AND_CONCEPTS.md

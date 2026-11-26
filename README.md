@@ -1,111 +1,214 @@
 # ADEI Website — ENSA Fès
 
-Full-stack web platform for **ADEI** (*Association des Étudiants Ingénieurs* — ENSA Fès):
-- **Frontend:** Vite 8 + React 19 + TypeScript + Tailwind CSS v4 + shadcn/ui + Framer Motion (`/frontend` on port `3000`)
-- **Backend:** Node.js 20 + Express + Sequelize ORM + TypeScript (`/server` on port `5001`)
-- **Databases:** PostgreSQL 16 (active primary) + MySQL 8.0 (standby) + Adminer UI (`:8082`)
+Official full-stack platform for **ADEI** (*Association des Étudiants Ingénieurs* — ENSA Fès):
+- **Frontend:** Vite 8 + React 19 + TypeScript + Tailwind CSS v4 + shadcn/ui (`frontend/` on port `5173` in dev, `3000` in Docker)
+- **Backend:** Node.js 20 + Express + Sequelize ORM + TypeScript (`server/` on port `5001`)
+- **Cloud Database:** Neon Serverless PostgreSQL 16 (TLS/SSL pooled runtime + direct migration endpoint) & local PostgreSQL (`5432`)
+- **Cloud Hosting:** Vercel SPA (Frontend with `/api/*` proxy rewrite) + Vercel Serverless Function (`server/api/index.ts`)
+- **Object Storage:** Cloudinary (production) & local disk fallback (`uploads/` in development)
+- **Compliance & Security:** Moroccan CNDP Law 09-08, HMAC-SHA256 OTP lockout, partial unique indexes, RFC 4180 CSV sanitization, and institutional immutable audit logging
 
 ---
 
-## Getting Started (Docker Compose)
+## 🗺️ System Architecture
+
+```
+[ Client Browser ]
+        │
+        ├── (Dev: http://localhost:5173 / Prod: Vercel SPA)
+        ▼
+[ Frontend SPA (React 19 + Vite + Tailwind v4) ]
+        │
+        │  /api/* (HTTP/JSON + httpOnly JWT Cookie: credentials: 'include')
+        ▼
+[ Express API Engine (Node.js 20 + TypeScript) ]
+   ├── Middleware: CORS, RateLimit, Express req.ip, Zod .strict(), Auth Cookie
+   ├── Business Logic & Services (OTP HMAC-SHA256, Cloudinary Storage, Audit Log)
+   └── Sequelize ORM 6 (TypeScript Models & Migrations)
+        │
+        ├── (Database Connection Pooling / Direct DDL)
+        ▼
+[ Neon Serverless PostgreSQL 16 ]
+   ├── 15 Versioned Migrations (SequelizeMeta)
+   ├── Partial Unique Indexes (Student & Guest Registrations)
+   └── Immutable Audit Trail (audit_logs table with actor snapshots)
+```
+
+---
+
+## 🚀 Quick Start (Local Development)
 
 ### 1. Prerequisites
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (with Docker Compose v2)
+- [Node.js](https://nodejs.org/) (version 20 or higher)
+- [npm](https://www.npmjs.com/) (version 10 or higher)
 - [Git](https://git-scm.com/)
+- Access to a PostgreSQL database (local instance or cloud Neon connection string)
 
 ### 2. Configure Environment Variables
-Copy the root template into a local `.env` file (never commit `.env`):
+Copy the root `.env.example` into `server/.env` (and root `.env` if using Docker):
 
 ```bash
-cp .env.example .env
-```
-*(In PowerShell: `Copy-Item .env.example .env`)* — edit any passwords or `JWT_SECRET` you want for local dev.
+# In Bash / macOS / Linux:
+cp .env.example server/.env
 
-### 3. Start All Services
+# In PowerShell (Windows):
+Copy-Item .env.example server/.env
+```
+
+Key variables to configure in `server/.env`:
+```ini
+NODE_ENV=development
+PORT=5001
+JWT_SECRET=your_super_secret_jwt_key_at_least_32_chars
+CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+COOKIE_SECURE=false
+
+# Database Configuration (Choose one):
+# Option A: Direct Neon PostgreSQL connection:
+DATABASE_URL=postgresql://user:password@ep-xyz.eu-central-1.aws.neon.tech/neondb?sslmode=require
+
+# Option B: Local PostgreSQL:
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=adei_pg_user
+DB_PASSWORD=adei_pg_password
+DB_NAME=adei_pg
+DB_SSL=false
+
+# Object Storage (Cloudinary in production, local in dev):
+STORAGE_PROVIDER=local
+```
+
+### 3. Install Dependencies
 ```bash
-docker compose up --build
+# Install backend dependencies
+npm --prefix server install
+
+# Install frontend dependencies
+npm --prefix frontend install
 ```
-Or run in the background:
+
+### 4. Database Migrations & Initial Administrator
+Run all 15 versioned migrations to build the schema:
 ```bash
-docker compose up -d --build
+npm --prefix server run migrate
 ```
 
-### 4. Database Migrations & Administrator Account
-Apply all versioned database migrations (schema baseline, redesign, roles, academic hierarchy, and bureau mandates):
-
+Initialize the administrator account using credentials defined in your `.env` (or pass `-- --reset` to force-reset an existing administrator):
 ```bash
-docker compose exec api npm run migrate
+npm --prefix server run create-admin
 ```
 
-Admin accounts are never created automatically. To initialize or update your administrator account with the credentials defined in `.env`:
-
+*(Optional)* Seed realistic campus data (articles, events, clubs, executive bureau mandates 2023–2026, partners, and feedbacks):
 ```bash
-docker compose exec api npm run create-admin
-```
-*(Add `-- --reset` to force-reset an existing administrator's password: `docker compose exec api npm run create-admin -- --reset`)*
+# Populate demo data
+npm --prefix server run seed:demo
 
-### 5. Demo Data (Mock Data for Testing)
-Populate the database with realistic campus data (articles, events, clubs, executive bureau mandates 2023–2026, partners, and feedbacks):
-
-```bash
-# Seed realistic demo data
-docker compose exec api npm run seed:demo
-
-# Clear only the demo data (preserves admin, users, and filières)
-docker compose exec api npm run seed:clear
+# Clear only demo data (preserves administrator, users, and filières)
+npm --prefix server run seed:clear
 ```
 
-### 6. Automated Database Backup (PostgreSQL)
-Create an encrypted, timestamped SQL backup into `./backups/` and purge backups older than 30 days:
+### 5. Start Development Servers
+Start the backend and frontend concurrently:
 
 ```bash
-docker compose exec api npm run db:backup
-```
-*(Or directly via postgres: `docker compose exec postgres pg_dump -U adei_pg_user -d adei_pg > backups/manual_backup.sql`)*
+# Terminal 1: Backend API (runs on http://localhost:5001 with hot-reload)
+npm --prefix server run dev
 
-### 7. Restore a MySQL Dump from `./backups` (Legacy / Rollback)
-1. Place your `.sql` backup file inside the `./backups/` directory (for example `backups/adei_backup.sql`). It is automatically mounted inside the MySQL container at `/backups/`.
-2. Run the restore command using the credentials from your `.env`:
-
-**Bash / macOS / Linux:**
-```bash
-docker compose exec -T mysql mysql -u adei_user -p"your_mysql_password" adei_db < ./backups/adei_backup.sql
+# Terminal 2: Frontend SPA (runs on http://localhost:5173 with Vite HMR)
+npm --prefix frontend run dev
 ```
 
-**PowerShell (Windows):**
-```powershell
-Get-Content .\backups\adei_backup.sql -Raw | docker compose exec -T mysql mysql -u adei_user -p"your_mysql_password" adei_db
-```
+---
 
-*(Alternatively, run directly inside the container using the `/backups` mount: `docker compose exec mysql sh -c 'mysql -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" < /backups/adei_backup.sql'`)*
+## 🐳 Containerized Setup (Docker Compose)
 
-### 8. Running Automated Tests (Jest + Supertest)
-Tests run against a dedicated isolated PostgreSQL database (`adei_test`) protected by a safety guard so development data (`adei_pg`) is never touched.
+If you prefer running everything in isolated Docker containers:
 
-1. Create the test database once (first-time setup):
-```bash
-docker compose exec postgres psql -U adei_pg_user -d adei_pg -c "CREATE DATABASE adei_test;"
-```
+1. **Start all services:**
+   ```bash
+   docker compose up --build
+   ```
+2. **Apply migrations inside the container:**
+   ```bash
+   docker compose exec api npm run migrate
+   ```
+3. **Initialize the administrator:**
+   ```bash
+   docker compose exec api npm run create-admin
+   ```
+4. **Seed demo data:**
+   ```bash
+   docker compose exec api npm run seed:demo
+   ```
 
-2. Run the automated test suite:
-```bash
-docker compose exec api npm test
-```
+---
 
-### 9. Production Deployment & CI/CD
+## 🔒 Security, Compliance & Governance Architecture
 
-- **GitHub Actions (`.github/workflows/ci.yml`):** Automatically triggers on push and pull requests to run TypeScript checks (`tsc`), execute database migrations on a clean PostgreSQL 16 container, run all 26 Jest smoke tests, and compile the Vite frontend production bundle.
-- **SPA Routing (`frontend/vercel.json`):** Configured with catch-all rewrites (`/(.*) -> /index.html`) to prevent 404 errors on deep links and browser refreshes in production.
-- **Cloud Object Storage (`server/services/storage.service.ts`):** Supports local disk storage in development (`STORAGE_PROVIDER=local`) and automatic cloud object storage via Cloudinary or S3/R2 in production (`STORAGE_PROVIDER=cloudinary` with `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`).
-- **Managed PostgreSQL:** Supports direct connection strings (`DATABASE_URL=postgres://...`) and TLS/SSL enforcement (`DB_SSL=true`) for Neon, Supabase, Railway, or AWS RDS.
-
-### 10. Local Service URLs
-
-| Service | URL / Connection | Notes |
+| Mechanism | Implementation Detail | Location |
 | :--- | :--- | :--- |
-| **Frontend (Modern SPA)** | http://localhost:3000 | Vite 8 + React 19 + Tailwind v4 + shadcn/ui |
-| **Backend API** | http://localhost:5001 | TypeScript + tsx watch (`/api/*`) |
-| **API Healthcheck** | http://localhost:5001/health | Returns DB connectivity & uptime |
-| **Adminer (DB UI)** | http://localhost:8082 | Web SQL client for MySQL & PostgreSQL |
-| **MySQL (Host port)** | `localhost:3307` | System: `MySQL` · Server inside Adminer: `mysql` |
-| **PostgreSQL (Host port)** | `localhost:5432` | System: `PostgreSQL` · Server inside Adminer: `postgres` |
+| **CNDP Law 09-08 Compliance** | Mandatory personal data collection consent checkbox and explicit data processing notice for public guest registrations. | [frontend/src/pages/NewsPage.tsx](file:///c:/Users/asus/Desktop/projects/ADEI-Website/frontend/src/pages/NewsPage.tsx) |
+| **OTP Brute-Force Defense** | HMAC-SHA256 salted hashing (`JWT_SECRET`), 5-minute expiration, and 5-attempt brute-force lockout counter in database. | [server/services/otp.service.ts](file:///c:/Users/asus/Desktop/projects/ADEI-Website/server/services/otp.service.ts) |
+| **Dual-Track Event RSVPs** | Partial unique PostgreSQL indexes preventing duplicate RSVPs for students and guests: `(eventId, userId) WHERE userId IS NOT NULL` and `(eventId, guestEmail) WHERE userId IS NULL`. | [server/migrations/20261126020000-event-registrations-and-organizers.js](file:///c:/Users/asus/Desktop/projects/ADEI-Website/server/migrations/20261126020000-event-registrations-and-organizers.js) |
+| **CSV Formula Injection Defense** | RFC 4180 sanitizer escaping cells starting with `=`, `+`, `-`, `@`, `\t` with `'` to neutralize DDE formula execution in Excel. | [frontend/src/lib/csv.ts](file:///c:/Users/asus/Desktop/projects/ADEI-Website/frontend/src/lib/csv.ts) |
+| **Immutable Institutional Audit Trail** | Immutable `audit_logs` table tracking user approvals, role changes, roster exports, logins, and deletions. Server-side fail-closed execution on critical governance actions. | [server/services/audit.service.ts](file:///c:/Users/asus/Desktop/projects/ADEI-Website/server/services/audit.service.ts) |
+| **IP Trust-Proxy Isolation** | Real client IP extracted safely via Express `req.ip` behind reverse proxies without trusting spoofable raw headers. | [server/app.ts](file:///c:/Users/asus/Desktop/projects/ADEI-Website/server/app.ts) |
+| **Strict Request Validation** | Zod schemas with `.strict()` reject unknown or unauthorized properties during registration and submission. | [server/validators/schemas.ts](file:///c:/Users/asus/Desktop/projects/ADEI-Website/server/validators/schemas.ts) |
+| **Cookie Authentication** | Session token stored in `httpOnly` secure cookies (`SameSite=None; Secure` in production), immunizing tokens against XSS. | [server/middleware/auth.ts](file:///c:/Users/asus/Desktop/projects/ADEI-Website/server/middleware/auth.ts) |
+
+---
+
+## 🗄️ Database Migrations Lifecycle
+
+All schema modifications are tracked as versioned, reversible migrations in `server/migrations/`.
+
+```bash
+# Run all pending migrations
+npm --prefix server run migrate
+
+# Roll back the most recent migration
+npm --prefix server run migrate:undo
+
+# Target Neon Cloud Database directly (always use the direct, non-pooled connection for migrations):
+DATABASE_URL="postgresql://user:password@ep-xyz.eu-central-1.aws.neon.tech/neondb?sslmode=require" npm --prefix server run migrate
+```
+
+### Database Backup & Disaster Recovery
+Generate an encrypted, timestamped PostgreSQL dump into `./backups/`:
+```bash
+npm --prefix server run db:backup
+```
+
+---
+
+## 🧪 Testing & Verification Suite
+
+The repository includes a comprehensive automated testing suite:
+
+```bash
+# Run automated Jest integration & smoke test suite
+npm --prefix server test
+
+# Run TypeScript type check on backend
+npm --prefix server run typecheck
+
+# Build frontend production bundle with Vite
+npm --prefix frontend run build
+```
+
+---
+
+## 🌐 Service Endpoints & Ports
+
+| Service | Environment | URL / Port | Details |
+| :--- | :--- | :--- | :--- |
+| **Frontend (Vite Dev)** | Local Native | `http://localhost:5173` | React 19 + Tailwind v4 HMR |
+| **Frontend (Docker)** | Local Container | `http://localhost:3000` | Nginx/Vite Container |
+| **Backend API** | Local Dev | `http://localhost:5001` | Express + TypeScript (`/api/*`) |
+| **API Healthcheck** | Local Dev | `http://localhost:5001/health` | Returns DB connectivity & uptime |
+| **Adminer UI** | Local Docker | `http://localhost:8082` | Web SQL Client |
+| **PostgreSQL (Local)** | Local Docker | `localhost:5432` | Containerized PostgreSQL 16 |
+| **Production Frontend** | Cloud (Vercel) | `https://adei-ensa.vercel.app` | Vercel SPA with `/api/*` rewrite |
+| **Production API** | Cloud (Vercel) | `https://adei-api-phi.vercel.app` | Vercel Serverless Function |
+| **Production Database** | Cloud (Neon) | Serverless PostgreSQL 16 | Connection pooling + SSL |
