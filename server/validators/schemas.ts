@@ -142,6 +142,7 @@ const filiereBaseSchema = z.object({
   type: z.enum(['filiere', 'prepa']).default('filiere'),
   documentation: optionalUrl,
   drive: optionalUrl,
+  drives: z.union([z.record(z.string(), z.array(z.object({ label: z.string().trim(), url: z.string().trim() }))), z.string()]).optional().nullable(),
   description: optionalStr,
   isActive: z.coerce.boolean().optional(),
   order_display: z.coerce.number().int().optional(),

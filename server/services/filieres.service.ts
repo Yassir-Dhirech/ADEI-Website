@@ -7,12 +7,33 @@ export async function listFilieres(): Promise<Filiere[]> {
   });
 }
 
+function parseDrives(value: unknown): Record<string, Array<{ label: string; url: string }>> {
+  if (!value) return {};
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, Array<{ label: string; url: string }>>;
+  }
+  try {
+    const parsed = JSON.parse(String(value));
+    return typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 export async function createFiliere(body: Record<string, unknown>): Promise<Filiere> {
-  return Filiere.create(pickFields(body, 'filieres'));
+  const data = pickFields(body, 'filieres');
+  if (data.drives !== undefined) {
+    data.drives = parseDrives(data.drives);
+  }
+  return Filiere.create(data);
 }
 
 export async function updateFiliere(id: string | number, body: Record<string, unknown>): Promise<Filiere | null> {
-  const [updated] = await Filiere.update(pickFields(body, 'filieres'), { where: { id } });
+  const data = pickFields(body, 'filieres');
+  if (data.drives !== undefined) {
+    data.drives = parseDrives(data.drives);
+  }
+  const [updated] = await Filiere.update(data, { where: { id } });
   return updated ? Filiere.findByPk(id) : null;
 }
 

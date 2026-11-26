@@ -8,6 +8,7 @@ export class Filiere extends Model {
   declare type: 'filiere' | 'prepa';
   declare documentation: string | null;
   declare drive: string | null;
+  declare drives: Record<string, Array<{ label: string; url: string }>> | null;
   declare description: string | null;
   declare isActive: boolean;
   declare order_display: number;
@@ -22,6 +23,7 @@ Filiere.init({
   type: { type: DataTypes.ENUM('filiere', 'prepa'), allowNull: false, defaultValue: 'filiere' },
   documentation: { type: DataTypes.STRING(1000), allowNull: true },
   drive: { type: DataTypes.STRING(1000), allowNull: true },
+  drives: { type: DataTypes.JSONB, allowNull: true, defaultValue: {} },
   description: { type: DataTypes.TEXT, allowNull: true },
   isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
   order_display: { type: DataTypes.INTEGER, defaultValue: 0 },

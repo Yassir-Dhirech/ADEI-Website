@@ -86,6 +86,11 @@ export interface ClubItem {
   presidentUser?: { id: number; username: string; email: string } | null;
 }
 
+export interface DriveLink {
+  label: string;
+  url: string;
+}
+
 export interface FiliereItem {
   id: number;
   name: string;
@@ -94,6 +99,7 @@ export interface FiliereItem {
   description?: string | null;
   documentation?: string | null;
   drive?: string | null;
+  drives?: Record<string, DriveLink[]> | null;
   isActive?: boolean;
   order_display?: number;
   responsable_pedagogique?: string | null;
