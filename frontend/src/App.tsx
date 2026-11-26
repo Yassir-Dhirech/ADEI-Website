@@ -38,13 +38,15 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>}/>
+          <Route path="/president/dashboard" element={<ProtectedRoute><ClubPresidentPage /></ProtectedRoute>} />
+          <Route path="/club-president" element={<Navigate to="/president/dashboard" replace />} />
           <Route path="/admin" element={
               <ProtectedRoute requireAdmin>
                 <AdminLayout />
               </ProtectedRoute>
             }
           >
-            <Route path="president/dashboard" element={<ProtectedRoute><ClubPresidentPage /></ProtectedRoute>} />
+            <Route path="president/dashboard" element={<Navigate to="/president/dashboard" replace />} />
             <Route index element={<AdminDashboardPage />} />
             <Route
               path="news"
