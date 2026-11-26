@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
   FolderOpen,
@@ -19,8 +19,8 @@ import type { FiliereItem, DriveLink } from '@/types/api';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageHero, CardSkeletonGrid, Modal } from '@/components/ui';
+import { cn } from '@/lib/utils';
 
 // Type pour une carte individuelle par classe / promotion
 interface ClassCardItem {
@@ -28,7 +28,6 @@ interface ClassCardItem {
   filiere: FiliereItem;
   cycle: 'prepa' | 'ci';
   yearKey: 'CP1' | 'CP2' | '1A' | '2A' | '3A';
-  tabCategory: 'prepa' | 'ci1' | 'ci2' | 'ci3';
   classBadge: string;
   classTitle: string;
   yearLabel: string;
@@ -37,8 +36,12 @@ interface ClassCardItem {
 }
 
 export function EnsaPage() {
-  // Filtres : 'prepa' | 'ci1' | 'ci2' | 'ci3' | 'all'
-  const [filter, setFilter] = useState<string>('prepa');
+  // Filtre Principal (Niveau 1) : 'all' (par défaut pour la page) | 'prepa' | 'ci'
+  const [mainFilter, setMainFilter] = useState<'all' | 'prepa' | 'ci'>('all');
+
+  // Sous-filtre Année (Niveau 2, actif uniquement si mainFilter === 'ci') : '1A' (défaut) | '2A' | '3A'
+  const [ciYearFilter, setCiYearFilter] = useState<'1A' | '2A' | '3A'>('1A');
+
   const [search, setSearch] = useState('');
   const [selectedCard, setSelectedCard] = useState<ClassCardItem | null>(null);
 
@@ -72,7 +75,6 @@ export function EnsaPage() {
           filiere: f,
           cycle: 'prepa',
           yearKey: 'CP1',
-          tabCategory: 'prepa',
           classBadge: 'CP 1',
           classTitle: `${f.name} — CP1`,
           yearLabel: '1ère Année — Cycle Préparatoire',
@@ -95,7 +97,6 @@ export function EnsaPage() {
           filiere: f,
           cycle: 'prepa',
           yearKey: 'CP2',
-          tabCategory: 'prepa',
           classBadge: 'CP 2',
           classTitle: `${f.name} — CP2`,
           yearLabel: '2ème Année — Cycle Préparatoire',
@@ -105,10 +106,10 @@ export function EnsaPage() {
       } else {
         // Cycle Ingénieur : 3 cartes (1A, 2A, 3A)
 
-        // 1. 1ère Année CI (CI 1)
+        // 1. 1ère Année CI (1A)
         const ci1Delegates: Array<{ role: string; name: string; phone?: string | null }> = [];
         if (f.delegue_annee1) {
-          ci1Delegates.push({ role: 'Délégué 1A', name: f.delegue_annee1, phone: f.tel_delegue_annee1 });
+          ci1Delegates.push({ role: 'Délégué de la classe', name: f.delegue_annee1, phone: f.tel_delegue_annee1 });
         }
         const ci1Drives: DriveLink[] = drivesObj['1A'] && drivesObj['1A'].length > 0
           ? drivesObj['1A']
@@ -119,18 +120,17 @@ export function EnsaPage() {
           filiere: f,
           cycle: 'ci',
           yearKey: '1A',
-          tabCategory: 'ci1',
           classBadge: `${f.abbreviation} 1`,
           classTitle: `${f.name} — 1ère Année CI`,
-          yearLabel: '1ère Année Cycle Ingénieur (CI 1)',
+          yearLabel: '1ère Année Cycle Ingénieur (1A)',
           delegates: ci1Delegates,
           drives: ci1Drives
         });
 
-        // 2. 2ème Année CI (CI 2)
+        // 2. 2ème Année CI (2A)
         const ci2Delegates: Array<{ role: string; name: string; phone?: string | null }> = [];
         if (f.delegue_annee2) {
-          ci2Delegates.push({ role: 'Délégué 2A', name: f.delegue_annee2, phone: f.tel_delegue_annee2 });
+          ci2Delegates.push({ role: 'Délégué de la classe', name: f.delegue_annee2, phone: f.tel_delegue_annee2 });
         }
         const ci2Drives: DriveLink[] = drivesObj['2A'] && drivesObj['2A'].length > 0
           ? drivesObj['2A']
@@ -141,18 +141,17 @@ export function EnsaPage() {
           filiere: f,
           cycle: 'ci',
           yearKey: '2A',
-          tabCategory: 'ci2',
           classBadge: `${f.abbreviation} 2`,
           classTitle: `${f.name} — 2ème Année CI`,
-          yearLabel: '2ème Année Cycle Ingénieur (CI 2)',
+          yearLabel: '2ème Année Cycle Ingénieur (2A)',
           delegates: ci2Delegates,
           drives: ci2Drives
         });
 
-        // 3. 3ème Année CI (CI 3)
+        // 3. 3ème Année CI (3A)
         const ci3Delegates: Array<{ role: string; name: string; phone?: string | null }> = [];
         if (f.delegue_annee3) {
-          ci3Delegates.push({ role: 'Délégué 3A', name: f.delegue_annee3, phone: f.tel_delegue_annee3 });
+          ci3Delegates.push({ role: 'Délégué de la classe', name: f.delegue_annee3, phone: f.tel_delegue_annee3 });
         }
         const ci3Drives: DriveLink[] = drivesObj['3A'] && drivesObj['3A'].length > 0
           ? drivesObj['3A']
@@ -163,10 +162,9 @@ export function EnsaPage() {
           filiere: f,
           cycle: 'ci',
           yearKey: '3A',
-          tabCategory: 'ci3',
           classBadge: `${f.abbreviation} 3`,
           classTitle: `${f.name} — 3ème Année CI`,
-          yearLabel: '3ème Année Cycle Ingénieur (CI 3)',
+          yearLabel: '3ème Année Cycle Ingénieur (3A)',
           delegates: ci3Delegates,
           drives: ci3Drives
         });
@@ -176,11 +174,19 @@ export function EnsaPage() {
     return cards;
   }, [filieresList]);
 
-  // Filtrage selon l'onglet et la recherche
+  // Filtrage combiné : Niveau 1 (Cycle) + Niveau 2 (Année CI si sélectionné) + Recherche
   const displayedCards = useMemo(() => {
     return allClasses.filter((card) => {
-      if (filter !== 'all' && card.tabCategory !== filter) return false;
+      // Filtrage Niveau 1
+      if (mainFilter === 'prepa') {
+        if (card.cycle !== 'prepa') return false;
+      } else if (mainFilter === 'ci') {
+        if (card.cycle !== 'ci') return false;
+        // Filtrage Niveau 2 : Année spécifique de CI (1A, 2A, 3A)
+        if (card.yearKey !== ciYearFilter) return false;
+      }
 
+      // Recherche textuelle
       if (!search.trim()) return true;
 
       const q = search.toLowerCase();
@@ -195,18 +201,7 @@ export function EnsaPage() {
 
       return matchText.includes(q);
     });
-  }, [allClasses, filter, search]);
-
-  // Comptages pour les onglets
-  const counts = useMemo(() => {
-    return {
-      all: allClasses.length,
-      prepa: allClasses.filter((c) => c.tabCategory === 'prepa').length,
-      ci1: allClasses.filter((c) => c.tabCategory === 'ci1').length,
-      ci2: allClasses.filter((c) => c.tabCategory === 'ci2').length,
-      ci3: allClasses.filter((c) => c.tabCategory === 'ci3').length
-    };
-  }, [allClasses]);
+  }, [allClasses, mainFilter, ciYearFilter, search]);
 
   return (
     <div className="space-y-8">
@@ -217,28 +212,110 @@ export function EnsaPage() {
         image="/images/hero-about.png"
       />
 
-      {/* Barre de filtres par promotion et barre de recherche */}
+      {/* Barre de filtres dans un seul cadre compact + Recherche */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <Tabs value={filter} onValueChange={(val) => setFilter(String(val))} className="w-full lg:w-auto">
-          <TabsList className="h-auto flex-wrap gap-1 rounded-xl p-1 bg-zinc-100 dark:bg-zinc-800/80">
-            <TabsTrigger value="prepa" className="rounded-lg px-3.5 py-1.5 text-xs font-semibold">
-              Cycle Préparatoire ({counts.prepa})
-            </TabsTrigger>
-            <TabsTrigger value="ci1" className="rounded-lg px-3.5 py-1.5 text-xs font-semibold">
-              1ère Année CI ({counts.ci1})
-            </TabsTrigger>
-            <TabsTrigger value="ci2" className="rounded-lg px-3.5 py-1.5 text-xs font-semibold">
-              2ème Année CI ({counts.ci2})
-            </TabsTrigger>
-            <TabsTrigger value="ci3" className="rounded-lg px-3.5 py-1.5 text-xs font-semibold">
-              3ème Année CI ({counts.ci3})
-            </TabsTrigger>
-            <TabsTrigger value="all" className="rounded-lg px-3.5 py-1.5 text-xs font-semibold">
-              Toutes ({counts.all})
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        {/* Le cadre unique pour tous les filtres */}
+        <div className="inline-flex flex-wrap items-center gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800/80">
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            type="button"
+            onClick={() => setMainFilter('all')}
+            className={cn(
+              "rounded-lg px-3.5 py-1.5 text-xs font-semibold transition",
+              mainFilter === 'all'
+                ? "bg-white text-zinc-900 shadow-xs dark:bg-zinc-900 dark:text-zinc-50"
+                : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+            )}
+          >
+            Toutes
+          </motion.button>
 
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            type="button"
+            onClick={() => setMainFilter('prepa')}
+            className={cn(
+              "rounded-lg px-3.5 py-1.5 text-xs font-semibold transition",
+              mainFilter === 'prepa'
+                ? "bg-white text-zinc-900 shadow-xs dark:bg-zinc-900 dark:text-zinc-50"
+                : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+            )}
+          >
+            Cycle Préparatoire
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            type="button"
+            onClick={() => {
+              setMainFilter('ci');
+              setCiYearFilter('1A');
+            }}
+            className={cn(
+              "rounded-lg px-3.5 py-1.5 text-xs font-semibold transition",
+              mainFilter === 'ci'
+                ? "bg-red-600 text-white shadow-xs font-bold"
+                : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+            )}
+          >
+            Cycle Ingénieur
+          </motion.button>
+
+          {/* Sous-filtres CI 1, CI 2, CI 3 avec animation douce dans le MÊME cadre */}
+          <AnimatePresence mode="wait">
+            {mainFilter === 'ci' && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92, x: -6 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.92, x: -6 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                className="flex items-center gap-1 pl-1 border-l border-zinc-300 dark:border-zinc-700"
+              >
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  type="button"
+                  onClick={() => setCiYearFilter('1A')}
+                  className={cn(
+                    "rounded-lg px-2.5 py-1 text-xs font-bold transition",
+                    ciYearFilter === '1A'
+                      ? "bg-white text-red-600 shadow-xs dark:bg-zinc-900 dark:text-red-400"
+                      : "text-zinc-600 hover:bg-zinc-200/60 dark:text-zinc-300 dark:hover:bg-zinc-700/60"
+                  )}
+                >
+                  CI 1
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  type="button"
+                  onClick={() => setCiYearFilter('2A')}
+                  className={cn(
+                    "rounded-lg px-2.5 py-1 text-xs font-bold transition",
+                    ciYearFilter === '2A'
+                      ? "bg-white text-red-600 shadow-xs dark:bg-zinc-900 dark:text-red-400"
+                      : "text-zinc-600 hover:bg-zinc-200/60 dark:text-zinc-300 dark:hover:bg-zinc-700/60"
+                  )}
+                >
+                  CI 2
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  type="button"
+                  onClick={() => setCiYearFilter('3A')}
+                  className={cn(
+                    "rounded-lg px-2.5 py-1 text-xs font-bold transition",
+                    ciYearFilter === '3A'
+                      ? "bg-white text-red-600 shadow-xs dark:bg-zinc-900 dark:text-red-400"
+                      : "text-zinc-600 hover:bg-zinc-200/60 dark:text-zinc-300 dark:hover:bg-zinc-700/60"
+                  )}
+                >
+                  CI 3
+                </motion.button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Barre de Recherche rapide */}
         <div className="relative w-full lg:max-w-xs">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <Input
@@ -311,7 +388,7 @@ export function EnsaPage() {
                 <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-3 text-xs dark:border-zinc-800/80 dark:bg-zinc-800/30">
                   <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                     <Users className="h-3.5 w-3.5 text-red-600" />
-                    <span>{card.cycle === 'prepa' ? 'Délégués de Sections' : 'Délégué de Promotion'}</span>
+                    <span>{card.cycle === 'prepa' ? 'Délégués de Sections' : 'Délégué de la classe'}</span>
                   </div>
 
                   {card.delegates.length === 0 ? (
@@ -321,7 +398,7 @@ export function EnsaPage() {
                       {card.delegates.map((d, dIdx) => (
                         <div key={dIdx} className="flex items-center justify-between gap-1 text-[11px]">
                           <span className="text-zinc-500 dark:text-zinc-400 font-medium">
-                            {d.role} :
+                            {card.cycle === 'prepa' ? `${d.role} :` : 'Nom :'}
                           </span>
                           <div className="flex items-center gap-1.5">
                             <span className="font-bold text-zinc-800 dark:text-zinc-200">
@@ -472,7 +549,7 @@ export function EnsaPage() {
             {/* Délégués de cette classe */}
             <div>
               <h5 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">
-                <Users className="h-3.5 w-3.5 text-red-600" /> Représentation Étudiante ({selectedCard.classBadge})
+                <Users className="h-3.5 w-3.5 text-red-600" /> {selectedCard.cycle === 'prepa' ? `Délégués de Sections (${selectedCard.classBadge})` : `Délégué de la classe (${selectedCard.classBadge})`}
               </h5>
               <div className="rounded-xl border border-zinc-200/80 bg-white p-3 text-xs dark:border-zinc-800 dark:bg-zinc-800/40">
                 {selectedCard.delegates.length === 0 ? (
