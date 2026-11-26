@@ -63,7 +63,15 @@ export const getMyClub = async (req: Request, res: Response) => {
 export const proposeUpdate = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id || req.user!.userId!;
+    const isAdmin = req.user!.role === 'admin';
     const clubId = String(req.params.id);
+
+    if (!isAdmin) {
+      const userClub = await clubsService.findClubForUser(userId);
+      if (!userClub || String(userClub.id) !== clubId) {
+        return sendError(res, 403, 'FORBIDDEN', "Vous n'avez pas l'autorisation de modifier ce club");
+      }
+    }
 
     const result = await clubsService.proposeClubUpdate(clubId, userId, req.body, req.file);
     if (!result.ok) {

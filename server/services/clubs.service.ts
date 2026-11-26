@@ -1,6 +1,7 @@
 import { Op } from 'sequelize';
 import { Club, ClubMember, User } from '../models';
 import { pickFields } from '../utils/sanitize';
+import { clearCache } from '../utils/cache';
 import { storageService } from './storage.service';
 import { getCurrentAcademicYear } from './permissions.service';
 
@@ -344,7 +345,7 @@ export async function findClubForUser(userId: number): Promise<Club | null> {
     }
   }
 
-  return allClubs[0] || null;
+  return null;
 }
 
 /**
@@ -365,6 +366,8 @@ export async function proposeClubUpdate(
     pendingUpdatesSubmittedBy: userId,
     pendingUpdatesAt: new Date()
   });
+
+  clearCache('clubs');
 
   return { ok: true, club };
 }
@@ -392,6 +395,8 @@ export async function approveClubUpdate(
     pendingUpdatesAt: null
   });
 
+  clearCache('clubs');
+
   const presidentUser = submitterId ? await User.findByPk(submitterId) : null;
   return { ok: true, club, presidentUser };
 }
@@ -412,6 +417,8 @@ export async function rejectClubUpdate(
     pendingUpdatesSubmittedBy: null,
     pendingUpdatesAt: null
   });
+
+  clearCache('clubs');
 
   const presidentUser = submitterId ? await User.findByPk(submitterId) : null;
   return { ok: true, club, presidentUser };

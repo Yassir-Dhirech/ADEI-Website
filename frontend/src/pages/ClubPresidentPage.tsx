@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   CalendarDays,
@@ -84,20 +84,20 @@ export function ClubPresidentPage() {
     activities: ''
   });
   const [clubLogo, setClubLogo] = useState<File | null>(null);
-  const [isFormInitialized, setIsFormInitialized] = useState(false);
 
-  if (club && !isFormInitialized) {
-    setClubForm({
-      tel: club.tel || '',
-      email: club.email || '',
-      website: club.website || '',
-      instagram: club.instagram || '',
-      linkedin: club.linkedin || '',
-      description: club.description || '',
-      activities: (club.activities || []).join('\n')
-    });
-    setIsFormInitialized(true);
-  }
+  useEffect(() => {
+    if (club) {
+      setClubForm({
+        tel: club.tel || '',
+        email: club.email || '',
+        website: club.website || '',
+        instagram: club.instagram || '',
+        linkedin: club.linkedin || '',
+        description: club.description || '',
+        activities: (club.activities || []).join('\n')
+      });
+    }
+  }, [club]);
 
   // Mutation : Proposition de mise à jour du club
   const clubUpdateMutation = useMutation({
