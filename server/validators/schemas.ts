@@ -26,7 +26,7 @@ export const registerSchema = z.object({
   classe: z.string().trim().min(2, 'Classe requise'),
   requested_role: z.enum(['user', 'president', 'delegue', 'alumni']),
   otp: z.string().trim().min(4, 'Code OTP requis (au moins 4 chiffres)')
-});
+}).strict();
 
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Mot de passe actuel requis'),
@@ -93,7 +93,7 @@ export const eventGuestRegisterSchema = z.object({
   guestEmail: z.string().trim().email('Adresse email valide obligatoire'),
   guestPhone: z.string().trim().min(6, 'Numéro de téléphone requis').max(50, 'Numéro de téléphone trop long'),
   guestFiliere: z.string().trim().min(2, 'Veuillez préciser votre filière ou niveau')
-});
+}).strict();
 export type EventGuestRegisterInput = z.infer<typeof eventGuestRegisterSchema>;
 
 // Clubs

@@ -368,14 +368,27 @@ export async function registerGuestForEvent(
     }
   }
 
-  await EventRegistration.create({
-    eventId: Number(eventId),
-    userId: userWithEmail ? userWithEmail.id : null,
-    guestName: guestData.guestName.trim(),
-    guestEmail: email,
-    guestPhone: guestData.guestPhone ? guestData.guestPhone.trim() : null,
-    guestFiliere: guestData.guestFiliere ? guestData.guestFiliere.trim() : null
-  });
+  try {
+    await EventRegistration.create({
+      eventId: Number(eventId),
+      userId: userWithEmail ? userWithEmail.id : null,
+      guestName: guestData.guestName.trim(),
+      guestEmail: email,
+      guestPhone: guestData.guestPhone ? guestData.guestPhone.trim() : null,
+      guestFiliere: guestData.guestFiliere ? guestData.guestFiliere.trim() : null
+    });
+  } catch (err: unknown) {
+    const totalCount = await EventRegistration.count({ where: { eventId: Number(eventId) } });
+    if (err && typeof err === 'object' && 'name' in err && (err as { name: string }).name === 'SequelizeUniqueConstraintError') {
+      return {
+        ok: false,
+        status: 400,
+        message: 'Une inscription existe déjà avec cette adresse email pour cet événement.',
+        count: totalCount
+      };
+    }
+    throw err;
+  }
 
   const count = await EventRegistration.count({
     where: { eventId: Number(eventId) }

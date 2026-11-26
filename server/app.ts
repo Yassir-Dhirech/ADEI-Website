@@ -17,47 +17,8 @@ import newsRoutes from './routes/news.routes';
 import eventsRoutes from './routes/events.routes';
 import adeiRolesRoutes from './routes/adeiRoles.routes';
 import academicRoutes from './routes/academic.routes';
-import sequelize from './config/database';
 
 const app = express();
-
-// Auto-alignement idempotent des colonnes critiques en production (tolérant aux imports SQL bruts)
-if (env.isProduction || process.env.DATABASE_URL) {
-  sequelize.query(`
-    ALTER TABLE IF EXISTS feedbacks ADD COLUMN IF NOT EXISTS "isPublished" BOOLEAN DEFAULT false NOT NULL;
-    ALTER TABLE IF EXISTS feedbacks ADD COLUMN IF NOT EXISTS "userId" INTEGER REFERENCES users(id) ON DELETE SET NULL;
-    ALTER TABLE IF EXISTS clubs ADD COLUMN IF NOT EXISTS "pendingUpdates" JSONB DEFAULT NULL;
-    ALTER TABLE IF EXISTS clubs ADD COLUMN IF NOT EXISTS "pendingUpdatesSubmittedBy" INTEGER REFERENCES users(id) ON DELETE SET NULL;
-    ALTER TABLE IF EXISTS clubs ADD COLUMN IF NOT EXISTS "pendingUpdatesAt" TIMESTAMP WITH TIME ZONE DEFAULT NULL;
-    ALTER TABLE IF EXISTS filieres ADD COLUMN IF NOT EXISTS "drives" JSONB DEFAULT '{}';
-    CREATE TABLE IF NOT EXISTS event_registrations (
-      id SERIAL PRIMARY KEY,
-      "userId" INTEGER REFERENCES users(id) ON DELETE CASCADE,
-      "eventId" INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-      "guestName" VARCHAR(255),
-      "guestEmail" VARCHAR(255),
-      "guestPhone" VARCHAR(50),
-      "guestFiliere" VARCHAR(100),
-      "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-      "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-    );
-    ALTER TABLE IF EXISTS event_registrations ALTER COLUMN "userId" DROP NOT NULL;
-    ALTER TABLE IF EXISTS event_registrations ADD COLUMN IF NOT EXISTS "guestName" VARCHAR(255);
-    ALTER TABLE IF EXISTS event_registrations ADD COLUMN IF NOT EXISTS "guestEmail" VARCHAR(255);
-    ALTER TABLE IF EXISTS event_registrations ADD COLUMN IF NOT EXISTS "guestPhone" VARCHAR(50);
-    ALTER TABLE IF EXISTS event_registrations ADD COLUMN IF NOT EXISTS "guestFiliere" VARCHAR(100);
-    CREATE TABLE IF NOT EXISTS event_organizers (
-      id SERIAL PRIMARY KEY,
-      "eventId" INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-      "clubId" INTEGER REFERENCES clubs(id) ON DELETE SET NULL,
-      "organizerName" VARCHAR(255) NOT NULL,
-      "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-      "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-    );
-  `).catch((err: unknown) => {
-    console.warn('[DB Auto-heal warning]:', err instanceof Error ? err.message : err);
-  });
-}
 
 if (process.env.TRUST_PROXY) {
   const hops = parseInt(process.env.TRUST_PROXY, 10);

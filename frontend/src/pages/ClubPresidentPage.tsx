@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OrganizersMultiSelect } from '@/components/common/OrganizersMultiSelect';
+import { exportToCsv } from '@/lib/csv';
 
 export function ClubPresidentPage() {
   const queryClient = useQueryClient();
@@ -237,18 +238,7 @@ export function ClubPresidentPage() {
       new Date(reg.createdAt).toLocaleString('fr-FR')
     ]);
 
-    const csvContent = [
-      headers.map((h) => `"${h}"`).join(','),
-      ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `inscrits-${ev.title.replace(/[^a-zA-Z0-9]/g, '_')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    exportToCsv(`inscrits-${ev.title.replace(/[^a-zA-Z0-9]/g, '_')}`, headers, rows);
     toast.success('Liste exportée en CSV avec succès !');
   };
 

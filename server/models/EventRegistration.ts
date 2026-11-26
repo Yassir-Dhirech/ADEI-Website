@@ -1,4 +1,4 @@
-import { DataTypes, Model, Optional } from 'sequelize';
+import { DataTypes, Model, Optional, Op } from 'sequelize';
 import sequelize from '../config/database';
 
 export interface EventRegistrationAttributes {
@@ -73,8 +73,19 @@ EventRegistration.init(
     indexes: [
       {
         unique: true,
-        fields: ['userId', 'eventId'],
-        name: 'unique_user_event_registration'
+        fields: ['eventId', 'userId'],
+        name: 'unique_user_event_registration',
+        where: {
+          userId: { [Op.ne]: null }
+        }
+      },
+      {
+        unique: true,
+        fields: ['eventId', 'guestEmail'],
+        name: 'unique_guest_event_registration',
+        where: {
+          userId: null
+        }
       }
     ]
   }
