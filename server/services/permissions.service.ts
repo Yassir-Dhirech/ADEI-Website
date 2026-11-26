@@ -21,9 +21,9 @@ export function getCurrentAcademicYear(date: Date = new Date()): string {
   const month = date.getMonth(); // 0 = Janvier, 8 = Septembre
 
   if (month >= 8) {
-    return `${year}-${year + 1}`;
+    return `${year}/${year + 1}`;
   }
-  return `${year - 1}-${year}`;
+  return `${year - 1}/${year}`;
 }
 
 /**
@@ -50,13 +50,14 @@ export async function canManageClub(
   if (isNaN(numericClubId)) return false;
 
   const currentYear = getCurrentAcademicYear();
+  const currentYears = [currentYear, currentYear.replace('/', '-')];
 
   // Recherche d'un mandat actif en tant que président ou responsable de club pour l'année en cours
   const membership = await ClubMember.findOne({
     where: {
       userId: user.id,
       clubId: numericClubId,
-      academicYear: currentYear,
+      academicYear: { [Op.in]: currentYears },
       status: 'active',
       role: {
         [Op.in]: ['president', 'manager']

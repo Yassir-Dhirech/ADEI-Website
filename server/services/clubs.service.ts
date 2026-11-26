@@ -202,10 +202,11 @@ export async function handlePresidentAssignment(club: Club, presidentIdRaw: unkn
         await user.update({ is_president: true });
       }
 
-      // 4. Mettre à jour les informations du club avec le nom et email du président
+      // 4. Mettre à jour les informations du club avec le nom et coordonnées du président
       await club.update({
         president: user.username,
-        email: club.email && club.email !== 'contact@adei-ensaf.ma' ? club.email : user.email
+        email: user.email,
+        tel: user.phone || (club.tel && club.tel !== '—' ? club.tel : '—')
       });
     }
   }
@@ -243,7 +244,7 @@ export async function createClub(body: Record<string, unknown>, file?: Express.M
     input.president = NOT_ASSIGNED_PRESIDENT;
   }
   if (!input.annees_etude || String(input.annees_etude).trim() === '') {
-    input.annees_etude = 'Non spécifié';
+    input.annees_etude = '2026/2027';
   }
   if (!input.tel || String(input.tel).trim() === '') {
     input.tel = '—';

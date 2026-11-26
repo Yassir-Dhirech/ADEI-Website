@@ -30,7 +30,13 @@ export async function apiRequest<T>(
 
   const payload = (await res.json()) as ApiResponse<T>;
   if (!res.ok || !payload.success) {
-    throw new Error(payload.error?.message || payload.message || 'Erreur API');
+    const errorObj = new Error(payload.error?.message || payload.message || 'Erreur API') as Error & {
+      details?: Array<{ field?: string; message: string }>;
+    };
+    if (payload.error?.details) {
+      errorObj.details = payload.error.details;
+    }
+    throw errorObj;
   }
   return payload;
 }

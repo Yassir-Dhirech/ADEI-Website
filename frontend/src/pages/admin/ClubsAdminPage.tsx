@@ -26,6 +26,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
+
+const MANDAT_OPTIONS = ['2025/2026', '2026/2027', '2027/2028', '2028/2029'];
+const DEFAULT_MANDAT = '2026/2027';
 
 export function ClubsAdminPage() {
   const queryClient = useQueryClient();
@@ -40,8 +44,8 @@ export function ClubsAdminPage() {
   const [form, setForm] = useState({
     club: '',
     presidentId: 'none',
-    president: '',
-    annees_etude: '',
+    president: 'Non assigné pour le moment',
+    annees_etude: DEFAULT_MANDAT,
     tel: '',
     email: '',
     members: '0',
@@ -54,6 +58,9 @@ export function ClubsAdminPage() {
     achievements: ''
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
+
+  // Gestion des erreurs par champ (Exception Management)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Modale Suppression
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -102,22 +109,81 @@ export function ClubsAdminPage() {
     void queryClient.invalidateQueries({ queryKey: ['admin', 'counts'] });
   };
 
+  // Validation stricte côté client
+  const validateForm = () => {
+    const errs: Record<string, string> = {};
+
+    const trimmedClub = form.club.trim();
+    if (!trimmedClub) {
+      errs.club = 'Le nom du club est obligatoire.';
+    } else if (trimmedClub.length < 2) {
+      errs.club = 'Le nom du club doit comporter au moins 2 caractères.';
+    } else if (trimmedClub.length > 100) {
+      errs.club = 'Le nom du club ne peut pas dépasser 100 caractères.';
+    }
+
+    if (form.email && form.email.trim() !== '') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(form.email.trim())) {
+        errs.email = "L'adresse email n'a pas un format valide (ex: contact@adei-ensaf.ma).";
+      }
+    }
+
+    if (form.tel && form.tel.trim() !== '' && form.tel.trim() !== '—') {
+      const phoneClean = form.tel.trim().replace(/[\s\-\.]/g, '');
+      const phoneRegex = /^(\+212|0)([5-7]\d{8})$|^(\+\d{1,4}\d{6,14})$/;
+      if (!phoneRegex.test(phoneClean)) {
+        errs.tel = 'Format de téléphone invalide (ex: +212612345678 ou 0612345678).';
+      }
+    }
+
+    const urlRegex = /^https?:\/\/.+/i;
+    if (form.website && form.website.trim() !== '' && !urlRegex.test(form.website.trim())) {
+      errs.website = "L'URL doit débuter par https:// ou http://";
+    }
+    if (form.instagram && form.instagram.trim() !== '' && !urlRegex.test(form.instagram.trim())) {
+      errs.instagram = "L'URL Instagram doit débuter par https://";
+    }
+    if (form.linkedin && form.linkedin.trim() !== '' && !urlRegex.test(form.linkedin.trim())) {
+      errs.linkedin = "L'URL LinkedIn doit débuter par https://";
+    }
+    if (form.facebook && form.facebook.trim() !== '' && !urlRegex.test(form.facebook.trim())) {
+      errs.facebook = "L'URL Facebook doit débuter par https://";
+    }
+
+    const membersNum = parseInt(form.members, 10);
+    if (Number.isNaN(membersNum) || membersNum < 0) {
+      errs.members = 'Le nombre de membres doit être un nombre positif ou nul.';
+    }
+
+    if (logoFile) {
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      if (!allowedTypes.includes(logoFile.type)) {
+        errs.logo = 'Format non supporté (seuls JPG, PNG, WebP sont acceptés).';
+      } else if (logoFile.size > 5 * 1024 * 1024) {
+        errs.logo = 'Le fichier est trop volumineux (maximum 5 Mo).';
+      }
+    }
+
+    return errs;
+  };
+
   // Mutation Sauvegarde (Création / Mise à jour)
   const saveMutation = useMutation({
     mutationFn: async () => {
       const fd = new FormData();
-      fd.append('club', form.club);
+      fd.append('club', form.club.trim());
       fd.append('presidentId', form.presidentId);
-      if (form.president) fd.append('president', form.president);
-      if (form.annees_etude) fd.append('annees_etude', form.annees_etude);
-      if (form.tel) fd.append('tel', form.tel);
-      if (form.email) fd.append('email', form.email);
+      fd.append('president', form.president || 'Non assigné pour le moment');
+      fd.append('annees_etude', form.annees_etude || DEFAULT_MANDAT);
+      if (form.tel.trim()) fd.append('tel', form.tel.trim());
+      if (form.email.trim()) fd.append('email', form.email.trim());
       if (form.members) fd.append('members', form.members);
-      if (form.website) fd.append('website', form.website);
-      if (form.instagram) fd.append('instagram', form.instagram);
-      if (form.linkedin) fd.append('linkedin', form.linkedin);
-      if (form.facebook) fd.append('facebook', form.facebook);
-      if (form.description) fd.append('description', form.description);
+      if (form.website.trim()) fd.append('website', form.website.trim());
+      if (form.instagram.trim()) fd.append('instagram', form.instagram.trim());
+      if (form.linkedin.trim()) fd.append('linkedin', form.linkedin.trim());
+      if (form.facebook.trim()) fd.append('facebook', form.facebook.trim());
+      if (form.description.trim()) fd.append('description', form.description.trim());
 
       if (form.activities) {
         const arr = form.activities.split(',').map((s) => s.trim()).filter(Boolean);
@@ -149,10 +215,21 @@ export function ClubsAdminPage() {
       setModalOpen(false);
       setEditingClub(null);
       setLogoFile(null);
+      setFieldErrors({});
       invalidateClubs();
     },
-    onError: (err) => {
-      toast.error(err instanceof Error ? err.message : "Erreur lors de l'enregistrement du club");
+    onError: (err: unknown) => {
+      const anyErr = err as { details?: Array<{ field?: string; message: string }>; message?: string };
+      if (anyErr?.details && Array.isArray(anyErr.details)) {
+        const mapped: Record<string, string> = {};
+        anyErr.details.forEach((d) => {
+          if (d.field) mapped[d.field] = d.message;
+        });
+        setFieldErrors(mapped);
+        toast.error('Certains champs sont invalides selon les règles de validation du serveur.');
+      } else {
+        toast.error(anyErr?.message || "Erreur lors de l'enregistrement du club");
+      }
     }
   });
 
@@ -213,9 +290,9 @@ export function ClubsAdminPage() {
       club: '',
       presidentId: 'none',
       president: 'Non assigné pour le moment',
-      annees_etude: '2025/2026',
+      annees_etude: DEFAULT_MANDAT,
       tel: '',
-      email: '',
+      email: 'contact@adei-ensaf.ma',
       members: '0',
       website: '',
       instagram: '',
@@ -226,6 +303,7 @@ export function ClubsAdminPage() {
       achievements: ''
     });
     setLogoFile(null);
+    setFieldErrors({});
     setModalOpen(true);
   };
 
@@ -236,9 +314,9 @@ export function ClubsAdminPage() {
       club: c.club,
       presidentId: c.presidentId ? String(c.presidentId) : 'none',
       president: c.president || 'Non assigné pour le moment',
-      annees_etude: c.annees_etude || '',
-      tel: c.tel || '',
-      email: c.email || '',
+      annees_etude: c.annees_etude || DEFAULT_MANDAT,
+      tel: c.tel && c.tel !== '—' ? c.tel : '',
+      email: c.email || 'contact@adei-ensaf.ma',
       members: String(c.members || 0),
       website: c.website || '',
       instagram: c.instagram || '',
@@ -249,34 +327,51 @@ export function ClubsAdminPage() {
       achievements: Array.isArray(c.achievements) ? c.achievements.join(', ') : ''
     });
     setLogoFile(null);
+    setFieldErrors({});
     setModalOpen(true);
   };
 
+  // Changement d'assignation du président : pré-remplissage automatique des coordonnées
   const handlePresidentSelectChange = (userId: string) => {
     if (userId === 'none') {
       setForm((prev) => ({
         ...prev,
         presidentId: 'none',
-        president: 'Non assigné pour le moment'
+        president: 'Non assigné pour le moment',
+        email: 'contact@adei-ensaf.ma',
+        tel: ''
       }));
     } else {
       const selectedUser = users.find((u) => String(u.id) === userId);
-      setForm((prev) => ({
-        ...prev,
-        presidentId: userId,
-        president: selectedUser ? selectedUser.username : prev.president,
-        email: prev.email || (selectedUser ? selectedUser.email : prev.email),
-        tel: prev.tel || (selectedUser?.phone ? selectedUser.phone : prev.tel)
-      }));
+      if (selectedUser) {
+        setForm((prev) => ({
+          ...prev,
+          presidentId: userId,
+          president: selectedUser.username,
+          email: selectedUser.email,
+          tel: selectedUser.phone || ''
+        }));
+      }
     }
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next.president;
+      delete next.presidentId;
+      delete next.email;
+      delete next.tel;
+      return next;
+    });
   };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (!form.club.trim()) {
-      toast.error('Le nom du club est obligatoire');
+    const errs = validateForm();
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      toast.error('Veuillez corriger les champs signalés en rouge.');
       return;
     }
+    setFieldErrors({});
     saveMutation.mutate();
   };
 
@@ -404,7 +499,7 @@ export function ClubsAdminPage() {
                         <div className="mt-4 space-y-1 text-xs text-zinc-500">
                           <p className="truncate">Email : {club.email || 'contact@adei-ensaf.ma'}</p>
                           <p className="truncate">Téléphone : {club.tel || '—'}</p>
-                          <p className="truncate">Mandat : {club.annees_etude || 'Non spécifié'}</p>
+                          <p className="truncate">Mandat : {club.annees_etude || DEFAULT_MANDAT}</p>
                         </div>
                       </div>
 
@@ -643,35 +738,95 @@ export function ClubsAdminPage() {
               id="club"
               placeholder="ex: Club Robotique, Club Informatique..."
               value={form.club}
-              onChange={(e) => setForm((prev) => ({ ...prev, club: e.target.value }))}
+              onChange={(e) => {
+                setForm((prev) => ({ ...prev, club: e.target.value }));
+                setFieldErrors((prev) => {
+                  const next = { ...prev };
+                  delete next.club;
+                  return next;
+                });
+              }}
+              className={cn(fieldErrors.club && 'border-red-500 bg-red-50/20 focus-visible:ring-red-500')}
               required
             />
+            {fieldErrors.club && (
+              <p className="flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {fieldErrors.club}
+              </p>
+            )}
           </div>
 
-          {/* Assignation du Président */}
+          {/* Assignation du Président (Nom & Prénom uniquement dans la liste) */}
           <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 space-y-2 dark:border-zinc-800 dark:bg-zinc-900/50">
             <Label htmlFor="presidentSelect" className="flex items-center gap-1.5 font-bold">
               <ShieldCheck className="h-4 w-4 text-red-600" />
-              Président Assigné
+              Assigner le Président (Nom & Prénom de l'étudiant)
             </Label>
             <select
               id="presidentSelect"
               value={form.presidentId}
               onChange={(e) => handlePresidentSelectChange(e.target.value)}
-              className="w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-2 text-sm shadow-sm transition focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 dark:border-zinc-700 dark:bg-zinc-800"
+              className={cn(
+                'w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-2 text-sm shadow-sm transition focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 dark:border-zinc-700 dark:bg-zinc-800',
+                fieldErrors.presidentId && 'border-red-500 bg-red-50/20'
+              )}
             >
               <option value="none">-- Non assigné pour le moment --</option>
               {users.map((u) => (
                 <option key={u.id} value={String(u.id)}>
-                  {u.username} ({u.email}) {u.filiere ? `[${u.filiere}]` : ''}
+                  {u.username}
                 </option>
               ))}
             </select>
+
+            {form.presidentId !== 'none' && (
+              <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-300">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                <span>
+                  Président désigné : <strong>{form.president}</strong>. Ses coordonnées ont été renseignées
+                  automatiquement ci-dessous.
+                </span>
+              </div>
+            )}
+
             <p className="text-[11px] text-zinc-500 leading-normal">
-              L'étudiant assigné disposera automatiquement des droits d'accès à l'Espace Président pour proposer des
-              événements et soumettre des actualisations de fiche. Si aucun président n'est encore désigné, laissez sur
-              « Non assigné pour le moment ».
+              L'étudiant sélectionné par son Nom & Prénom disposera automatiquement des droits d'accès à l'Espace
+              Président. Laissez sur « Non assigné pour le moment » si la présidence n'est pas encore établie.
             </p>
+          </div>
+
+          {/* Mandat Universitaire (Menu Déroulant Sécurisé) */}
+          <div className="space-y-1.5">
+            <Label htmlFor="annees_etude">Mandat (Année universitaire) *</Label>
+            <select
+              id="annees_etude"
+              value={form.annees_etude}
+              onChange={(e) => {
+                setForm((prev) => ({ ...prev, annees_etude: e.target.value }));
+                setFieldErrors((prev) => {
+                  const next = { ...prev };
+                  delete next.annees_etude;
+                  return next;
+                });
+              }}
+              className={cn(
+                'w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-2 text-sm shadow-sm transition focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 dark:border-zinc-700 dark:bg-zinc-800',
+                fieldErrors.annees_etude && 'border-red-500 bg-red-50/20'
+              )}
+            >
+              {MANDAT_OPTIONS.map((m) => (
+                <option key={m} value={m}>
+                  {m} {m === DEFAULT_MANDAT ? '(Mandat actuel)' : ''}
+                </option>
+              ))}
+            </select>
+            {fieldErrors.annees_etude && (
+              <p className="flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {fieldErrors.annees_etude}
+              </p>
+            )}
           </div>
 
           {/* Description */}
@@ -682,13 +837,27 @@ export function ClubsAdminPage() {
               placeholder="Décrivez la vocation du club, ses projets phares et ses pôles d'activités..."
               rows={3}
               value={form.description}
-              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+              onChange={(e) => {
+                setForm((prev) => ({ ...prev, description: e.target.value }));
+                setFieldErrors((prev) => {
+                  const next = { ...prev };
+                  delete next.description;
+                  return next;
+                });
+              }}
+              className={cn(fieldErrors.description && 'border-red-500 bg-red-50/20')}
             />
+            {fieldErrors.description && (
+              <p className="flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {fieldErrors.description}
+              </p>
+            )}
           </div>
 
           {/* Logo / Image */}
           <div className="space-y-1.5">
-            <Label htmlFor="logo">Logo du club (JPG / PNG / WebP)</Label>
+            <Label htmlFor="logo">Logo du club (JPG / PNG / WebP, max 5 Mo)</Label>
             <div className="flex items-center gap-3">
               <Input
                 id="logo"
@@ -697,13 +866,25 @@ export function ClubsAdminPage() {
                 onChange={(e) => {
                   if (e.target.files && e.target.files[0]) {
                     setLogoFile(e.target.files[0]);
+                    setFieldErrors((prev) => {
+                      const next = { ...prev };
+                      delete next.logo;
+                      return next;
+                    });
                   }
                 }}
+                className={cn(fieldErrors.logo && 'border-red-500 bg-red-50/20')}
               />
             </div>
+            {fieldErrors.logo && (
+              <p className="flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {fieldErrors.logo}
+              </p>
+            )}
           </div>
 
-          {/* Coordonnées & Mandat */}
+          {/* Coordonnées & Membres */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="email">Email de contact</Label>
@@ -712,8 +893,22 @@ export function ClubsAdminPage() {
                 type="email"
                 placeholder="contact@adei-ensaf.ma"
                 value={form.email}
-                onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, email: e.target.value }));
+                  setFieldErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.email;
+                    return next;
+                  });
+                }}
+                className={cn(fieldErrors.email && 'border-red-500 bg-red-50/20 focus-visible:ring-red-500')}
               />
+              {fieldErrors.email && (
+                <p className="flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  {fieldErrors.email}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -722,18 +917,22 @@ export function ClubsAdminPage() {
                 id="tel"
                 placeholder="+212 6..."
                 value={form.tel}
-                onChange={(e) => setForm((prev) => ({ ...prev, tel: e.target.value }))}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, tel: e.target.value }));
+                  setFieldErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.tel;
+                    return next;
+                  });
+                }}
+                className={cn(fieldErrors.tel && 'border-red-500 bg-red-50/20 focus-visible:ring-red-500')}
               />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="annees_etude">Année d'étude / Mandat</Label>
-              <Input
-                id="annees_etude"
-                placeholder="ex: 2025/2026"
-                value={form.annees_etude}
-                onChange={(e) => setForm((prev) => ({ ...prev, annees_etude: e.target.value }))}
-              />
+              {fieldErrors.tel && (
+                <p className="flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  {fieldErrors.tel}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -743,8 +942,22 @@ export function ClubsAdminPage() {
                 type="number"
                 min="0"
                 value={form.members}
-                onChange={(e) => setForm((prev) => ({ ...prev, members: e.target.value }))}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, members: e.target.value }));
+                  setFieldErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.members;
+                    return next;
+                  });
+                }}
+                className={cn(fieldErrors.members && 'border-red-500 bg-red-50/20 focus-visible:ring-red-500')}
               />
+              {fieldErrors.members && (
+                <p className="flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  {fieldErrors.members}
+                </p>
+              )}
             </div>
           </div>
 
@@ -774,26 +987,89 @@ export function ClubsAdminPage() {
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Réseaux & Liens Web</Label>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <Input
-                placeholder="Site web (https://...)"
-                value={form.website}
-                onChange={(e) => setForm((prev) => ({ ...prev, website: e.target.value }))}
-              />
-              <Input
-                placeholder="Instagram (https://...)"
-                value={form.instagram}
-                onChange={(e) => setForm((prev) => ({ ...prev, instagram: e.target.value }))}
-              />
-              <Input
-                placeholder="LinkedIn (https://...)"
-                value={form.linkedin}
-                onChange={(e) => setForm((prev) => ({ ...prev, linkedin: e.target.value }))}
-              />
-              <Input
-                placeholder="Facebook (https://...)"
-                value={form.facebook}
-                onChange={(e) => setForm((prev) => ({ ...prev, facebook: e.target.value }))}
-              />
+              <div className="space-y-1">
+                <Input
+                  placeholder="Site web (https://...)"
+                  value={form.website}
+                  onChange={(e) => {
+                    setForm((prev) => ({ ...prev, website: e.target.value }));
+                    setFieldErrors((prev) => {
+                      const next = { ...prev };
+                      delete next.website;
+                      return next;
+                    });
+                  }}
+                  className={cn(fieldErrors.website && 'border-red-500 bg-red-50/20')}
+                />
+                {fieldErrors.website && (
+                  <p className="text-[11px] font-semibold text-red-600 dark:text-red-400">
+                    {fieldErrors.website}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <Input
+                  placeholder="Instagram (https://...)"
+                  value={form.instagram}
+                  onChange={(e) => {
+                    setForm((prev) => ({ ...prev, instagram: e.target.value }));
+                    setFieldErrors((prev) => {
+                      const next = { ...prev };
+                      delete next.instagram;
+                      return next;
+                    });
+                  }}
+                  className={cn(fieldErrors.instagram && 'border-red-500 bg-red-50/20')}
+                />
+                {fieldErrors.instagram && (
+                  <p className="text-[11px] font-semibold text-red-600 dark:text-red-400">
+                    {fieldErrors.instagram}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <Input
+                  placeholder="LinkedIn (https://...)"
+                  value={form.linkedin}
+                  onChange={(e) => {
+                    setForm((prev) => ({ ...prev, linkedin: e.target.value }));
+                    setFieldErrors((prev) => {
+                      const next = { ...prev };
+                      delete next.linkedin;
+                      return next;
+                    });
+                  }}
+                  className={cn(fieldErrors.linkedin && 'border-red-500 bg-red-50/20')}
+                />
+                {fieldErrors.linkedin && (
+                  <p className="text-[11px] font-semibold text-red-600 dark:text-red-400">
+                    {fieldErrors.linkedin}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <Input
+                  placeholder="Facebook (https://...)"
+                  value={form.facebook}
+                  onChange={(e) => {
+                    setForm((prev) => ({ ...prev, facebook: e.target.value }));
+                    setFieldErrors((prev) => {
+                      const next = { ...prev };
+                      delete next.facebook;
+                      return next;
+                    });
+                  }}
+                  className={cn(fieldErrors.facebook && 'border-red-500 bg-red-50/20')}
+                />
+                {fieldErrors.facebook && (
+                  <p className="text-[11px] font-semibold text-red-600 dark:text-red-400">
+                    {fieldErrors.facebook}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 

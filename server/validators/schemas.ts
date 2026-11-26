@@ -89,17 +89,17 @@ export const eventUpdateSchema = eventCreateSchema.partial();
 
 // Clubs
 export const clubCreateSchema = z.object({
-  club: z.string().trim().min(2, 'Nom du club requis'),
+  club: z.string().trim().min(2, 'Le nom du club doit contenir au moins 2 caractères').max(100, 'Le nom du club ne peut pas dépasser 100 caractères'),
   president: optionalStr,
   presidentId: z.union([z.string(), z.number()]).optional().nullable(),
-  annees_etude: optionalStr,
+  annees_etude: z.string().trim().regex(/^(\d{4}[\/-]\d{4})$/, 'Le mandat doit être au format AAAA/AAAA (ex: 2026/2027)').optional().or(z.literal('')).nullable(),
   tel: optionalStr,
-  email: z.union([z.string().trim().email('Email invalide'), z.literal('')]).optional().nullable(),
+  email: z.union([z.string().trim().email('Adresse email invalide'), z.literal('')]).optional().nullable(),
   website: optionalUrl,
   description: optionalStr,
   activities: z.union([z.string(), z.array(z.string())]).optional(),
   achievements: z.union([z.string(), z.array(z.string())]).optional(),
-  members: z.coerce.number().int().min(0).optional(),
+  members: z.coerce.number().int().min(0, 'Le nombre de membres doit être supérieur ou égal à 0').optional(),
   facebook: optionalUrl,
   instagram: optionalUrl,
   linkedin: optionalUrl
