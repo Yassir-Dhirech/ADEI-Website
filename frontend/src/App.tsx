@@ -19,6 +19,7 @@ import { UsersAdminPage } from './pages/admin/UsersAdminPage';
 import { ClubPresidentPage } from './pages/ClubPresidentPage';
 import { EventsAdminPage } from './pages/admin/EventsAdminPage';
 import { ClubsAdminPage } from './pages/admin/ClubsAdminPage';
+import { FilieresAdminPage } from './pages/admin/FilieresAdminPage';
 
 export default function App() {
   return (
@@ -71,26 +72,7 @@ export default function App() {
             />
             <Route path="events" element={<EventsAdminPage />} />
             <Route path="clubs" element={<ClubsAdminPage />} />
-            <Route
-              path="filieres"
-              element={
-                <ResourceAdminPage
-                  title="Filières"
-                  endpoint="/filieres"
-                  queryKey="filieres"
-                  titleField="name"
-                  subtitleField="abbreviation"
-                  fields={[
-                    { name: 'name', label: 'Nom complet', required: true },
-                    { name: 'abbreviation', label: 'Abréviation', required: true },
-                    { name: 'responsable_pedagogique', label: 'Responsable pédagogique' },
-                    { name: 'drive', label: 'Lien Drive' },
-                    { name: 'documentation', label: 'Lien Documentation' },
-                    { name: 'description', label: 'Description', type: 'textarea' }
-                  ]}
-                />
-              }
-            />
+            <Route path="filieres" element={<FilieresAdminPage />} />
             <Route
               path="partners"
               element={

@@ -137,14 +137,34 @@ export const adeiMemberCreateSchema = z.object({
 export const adeiMemberUpdateSchema = adeiMemberCreateSchema.partial();
 
 const filiereBaseSchema = z.object({
-  name: z.string().trim().min(2, 'Nom requis'),
-  abbreviation: z.string().trim().min(1, 'Abréviation requise'),
-  type: z.enum(['filiere', 'prepa']).optional(),
+  name: z.string().trim().min(2, 'Le nom de la filière doit contenir au moins 2 caractères'),
+  abbreviation: z.string().trim().min(1, "L'abréviation est requise"),
+  type: z.enum(['filiere', 'prepa']).default('filiere'),
   documentation: optionalUrl,
   drive: optionalUrl,
   description: optionalStr,
   isActive: z.coerce.boolean().optional(),
-  order_display: z.coerce.number().int().optional()
+  order_display: z.coerce.number().int().optional(),
+  responsable_pedagogique: optionalStr,
+  responsable_contact: optionalStr,
+  delegue_cp1_a: optionalStr,
+  tel_delegue_cp1_a: optionalStr,
+  delegue_cp1_b: optionalStr,
+  tel_delegue_cp1_b: optionalStr,
+  delegue_cp1_c: optionalStr,
+  tel_delegue_cp1_c: optionalStr,
+  delegue_cp2_a: optionalStr,
+  tel_delegue_cp2_a: optionalStr,
+  delegue_cp2_b: optionalStr,
+  tel_delegue_cp2_b: optionalStr,
+  delegue_cp2_c: optionalStr,
+  tel_delegue_cp2_c: optionalStr,
+  delegue_annee1: optionalStr,
+  tel_delegue_annee1: optionalStr,
+  delegue_annee2: optionalStr,
+  tel_delegue_annee2: optionalStr,
+  delegue_annee3: optionalStr,
+  tel_delegue_annee3: optionalStr
 });
 export const filiereCreateSchema = filiereBaseSchema.passthrough();
 export const filiereUpdateSchema = filiereBaseSchema.partial().passthrough();

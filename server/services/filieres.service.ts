@@ -3,7 +3,6 @@ import { pickFields } from '../utils/sanitize';
 
 export async function listFilieres(): Promise<Filiere[]> {
   return Filiere.findAll({
-    where: { isActive: true },
     order: [['order_display', 'ASC'], ['abbreviation', 'ASC']]
   });
 }

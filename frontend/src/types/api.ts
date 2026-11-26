@@ -94,7 +94,28 @@ export interface FiliereItem {
   description?: string | null;
   documentation?: string | null;
   drive?: string | null;
+  isActive?: boolean;
+  order_display?: number;
   responsable_pedagogique?: string | null;
+  responsable_contact?: string | null;
+  delegue_cp1_a?: string | null;
+  tel_delegue_cp1_a?: string | null;
+  delegue_cp1_b?: string | null;
+  tel_delegue_cp1_b?: string | null;
+  delegue_cp1_c?: string | null;
+  tel_delegue_cp1_c?: string | null;
+  delegue_cp2_a?: string | null;
+  tel_delegue_cp2_a?: string | null;
+  delegue_cp2_b?: string | null;
+  tel_delegue_cp2_b?: string | null;
+  delegue_cp2_c?: string | null;
+  tel_delegue_cp2_c?: string | null;
+  delegue_annee1?: string | null;
+  tel_delegue_annee1?: string | null;
+  delegue_annee2?: string | null;
+  tel_delegue_annee2?: string | null;
+  delegue_annee3?: string | null;
+  tel_delegue_annee3?: string | null;
 }
 
 export interface PartnerItem {

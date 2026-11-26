@@ -85,6 +85,38 @@ export function EnsaPage() {
                     <UserCheck className="h-3.5 w-3.5 text-red-600" /> {f.responsable_pedagogique}
                   </p>
                 )}
+
+                {/* Délégués assignés */}
+                {f.type === 'filiere' ? (
+                  (f.delegue_annee1 || f.delegue_annee2 || f.delegue_annee3) && (
+                    <div className="rounded-xl bg-zinc-50 p-2.5 text-xs text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">
+                      <p className="font-semibold text-[11px] text-zinc-400 uppercase tracking-wider mb-1">
+                        Délégués de promotion
+                      </p>
+                      <div className="space-y-0.5 text-[11px]">
+                        {f.delegue_annee1 && <p>1A : <span className="font-medium text-zinc-800 dark:text-zinc-200">{f.delegue_annee1}</span></p>}
+                        {f.delegue_annee2 && <p>2A : <span className="font-medium text-zinc-800 dark:text-zinc-200">{f.delegue_annee2}</span></p>}
+                        {f.delegue_annee3 && <p>3A : <span className="font-medium text-zinc-800 dark:text-zinc-200">{f.delegue_annee3}</span></p>}
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  (f.delegue_cp1_a || f.delegue_cp1_b || f.delegue_cp1_c || f.delegue_cp2_a || f.delegue_cp2_b || f.delegue_cp2_c) && (
+                    <div className="rounded-xl bg-zinc-50 p-2.5 text-xs text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">
+                      <p className="font-semibold text-[11px] text-zinc-400 uppercase tracking-wider mb-1">
+                        Délégués de sections
+                      </p>
+                      <div className="space-y-0.5 text-[11px]">
+                        {(f.delegue_cp1_a || f.delegue_cp1_b || f.delegue_cp1_c) && (
+                          <p>CP1 : <span className="font-medium text-zinc-800 dark:text-zinc-200">{[f.delegue_cp1_a, f.delegue_cp1_b, f.delegue_cp1_c].filter(Boolean).join(' • ')}</span></p>
+                        )}
+                        {(f.delegue_cp2_a || f.delegue_cp2_b || f.delegue_cp2_c) && (
+                          <p>CP2 : <span className="font-medium text-zinc-800 dark:text-zinc-200">{[f.delegue_cp2_a, f.delegue_cp2_b, f.delegue_cp2_c].filter(Boolean).join(' • ')}</span></p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                )}
               </div>
 
               <div className="mt-5 flex flex-wrap gap-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
