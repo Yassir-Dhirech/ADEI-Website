@@ -82,10 +82,19 @@ export const eventCreateSchema = z.object({
   category: optionalStr,
   clubId: z.union([z.string(), z.number()]).optional().nullable(),
   organizer: optionalStr,
+  organizers: z.union([z.string(), z.array(z.string())]).optional().nullable(),
   link: optionalUrl,
   order_display: z.coerce.number().int().optional()
 });
 export const eventUpdateSchema = eventCreateSchema.partial();
+
+export const eventGuestRegisterSchema = z.object({
+  guestName: z.string().trim().min(2, 'Le nom complet est obligatoire (min. 2 caractères)'),
+  guestEmail: z.string().trim().email('Adresse email valide obligatoire'),
+  guestPhone: z.string().trim().min(6, 'Numéro de téléphone requis').max(50, 'Numéro de téléphone trop long'),
+  guestFiliere: z.string().trim().min(2, 'Veuillez préciser votre filière ou niveau')
+});
+export type EventGuestRegisterInput = z.infer<typeof eventGuestRegisterSchema>;
 
 // Clubs
 export const clubCreateSchema = z.object({

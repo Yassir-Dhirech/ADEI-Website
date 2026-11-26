@@ -12,7 +12,10 @@ import {
   Pencil,
   Trash2,
   Users,
-  AlertCircle
+  AlertCircle,
+  Download,
+  Mail,
+  Phone
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiRequest, getImageUrl } from '@/lib/api';
@@ -24,6 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { OrganizersMultiSelect } from '@/components/common/OrganizersMultiSelect';
 
 type StatusFilter = 'pending' | 'approved' | 'rejected' | 'all';
 
@@ -46,6 +50,7 @@ export function EventsAdminPage() {
   // Modale Création / Édition
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
+  const [selectedOrganizers, setSelectedOrganizers] = useState<string[]>(['ADEI']);
   const [eventForm, setEventForm] = useState({
     title: '',
     category: 'Conférence',
@@ -142,8 +147,13 @@ export function EventsAdminPage() {
       formData.append('date', eventForm.date.trim());
       formData.append('time', eventForm.time.trim());
       formData.append('location', eventForm.location.trim());
-      formData.append('organizer', eventForm.organizer.trim() || 'ADEI');
-      if (eventForm.clubId) formData.append('clubId', eventForm.clubId);
+      const orgString = selectedOrganizers.join(' • ') || 'ADEI';
+      formData.append('organizer', orgString);
+      formData.append('organizers', JSON.stringify(selectedOrganizers));
+      const matchedClub = clubs.find((c) => selectedOrganizers.includes(c.club));
+      if (matchedClub) {
+        formData.append('clubId', String(matchedClub.id));
+      }
       if (eventForm.link.trim()) formData.append('link', eventForm.link.trim());
       formData.append('description', eventForm.description.trim());
       if (eventImage) formData.append('image', eventImage);
@@ -225,6 +235,7 @@ export function EventsAdminPage() {
 
   const handleOpenCreate = () => {
     setEditingEvent(null);
+    setSelectedOrganizers(['ADEI']);
     setEventForm({
       title: '',
       category: 'Conférence',
@@ -243,6 +254,8 @@ export function EventsAdminPage() {
 
   const handleOpenEdit = (ev: EventItem) => {
     setEditingEvent(ev);
+    const orgs = ev.organizer ? ev.organizer.split(/[•,]/).map((s) => s.trim()).filter(Boolean) : ['ADEI'];
+    setSelectedOrganizers(orgs.length > 0 ? orgs : ['ADEI']);
     setEventForm({
       title: ev.title,
       category: ev.category || 'Conférence',
@@ -257,6 +270,36 @@ export function EventsAdminPage() {
     setEventImage(null);
     setFieldErrors({});
     setEventModalOpen(true);
+  };
+
+  const handleExportCSV = (ev: EventItem) => {
+    if (!ev.registrations || ev.registrations.length === 0) {
+      toast.error('Aucun inscrit à exporter.');
+      return;
+    }
+    const headers = ['Nom & Prénom', 'Email', 'Téléphone', 'Filière / Niveau', 'Type', 'Date d\'inscription'];
+    const rows = ev.registrations.map((reg) => [
+      reg.user?.username || reg.guestName || (reg.userId ? `Utilisateur #${reg.userId}` : 'Invité'),
+      reg.user?.email || reg.guestEmail || '',
+      reg.user?.phone || reg.guestPhone || '',
+      reg.user?.filiere ? `${reg.user.filiere} ${reg.user.classe ? `(${reg.user.classe})` : ''}` : (reg.guestFiliere || ''),
+      reg.userId ? 'Compte ENSA vérifié' : 'Invité manuel',
+      new Date(reg.createdAt).toLocaleString('fr-FR')
+    ]);
+
+    const csvContent = [
+      headers.map((h) => `"${h}"`).join(','),
+      ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `inscrits-${ev.title.replace(/[^a-zA-Z0-9]/g, '_')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Liste exportée en CSV avec succès !');
   };
 
   const handleSubmit = (e: FormEvent) => {
@@ -513,44 +556,27 @@ export function EventsAdminPage() {
             )}
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label htmlFor="ev-category" className="text-xs font-bold">Catégorie</Label>
-              <select
-                id="ev-category"
-                value={eventForm.category}
-                onChange={(e) => setEventForm({ ...eventForm, category: e.target.value })}
-                className="w-full h-10 rounded-xl border border-zinc-200 bg-white px-3 text-xs dark:border-zinc-800 dark:bg-zinc-900"
-              >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-            </div>
+          <div className="space-y-1">
+            <Label htmlFor="ev-category" className="text-xs font-bold">Catégorie</Label>
+            <select
+              id="ev-category"
+              value={eventForm.category}
+              onChange={(e) => setEventForm({ ...eventForm, category: e.target.value })}
+              className="w-full h-10 rounded-xl border border-zinc-200 bg-white px-3 text-xs dark:border-zinc-800 dark:bg-zinc-900"
+            >
+              {CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </div>
 
-            <div className="space-y-1">
-              <Label htmlFor="ev-organizer" className="text-xs font-bold">Organisateur</Label>
-              <select
-                id="ev-organizer"
-                value={eventForm.organizer}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const foundClub = clubs.find((c) => c.club === val);
-                  setEventForm({
-                    ...eventForm,
-                    organizer: val,
-                    clubId: foundClub ? String(foundClub.id) : ''
-                  });
-                }}
-                className="w-full h-10 rounded-xl border border-zinc-200 bg-white px-3 text-xs dark:border-zinc-800 dark:bg-zinc-900"
-              >
-                <option value="ADEI">ADEI (Bureau des Élèves)</option>
-                <option value="Administration ENSA Fès">Administration ENSA Fès</option>
-                {clubs.map((c) => (
-                  <option key={c.id} value={c.club}>{c.club}</option>
-                ))}
-              </select>
-            </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-bold">Organisateurs / Co-organisateurs</Label>
+            <OrganizersMultiSelect
+              selected={selectedOrganizers}
+              onChange={setSelectedOrganizers}
+              availableClubs={clubs}
+            />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -675,30 +701,57 @@ export function EventsAdminPage() {
       >
         <div className="space-y-4 max-h-[75vh] overflow-y-auto px-1">
           {activeEventAttendees?.registrations && activeEventAttendees.registrations.length > 0 ? (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs text-zinc-500 pb-2 border-b border-zinc-100 dark:border-zinc-800">
-                <span className="font-bold">{activeEventAttendees.registrations.length} étudiant(s) inscrit(s)</span>
-                <span>Date &amp; Promotion</span>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs pb-2 border-b border-zinc-100 dark:border-zinc-800">
+                <span className="font-bold text-zinc-700 dark:text-zinc-300">
+                  {activeEventAttendees.registrations.length} participant(s) inscrit(s)
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleExportCSV(activeEventAttendees)}
+                  className="h-8 gap-1.5 rounded-xl text-xs"
+                >
+                  <Download className="h-3.5 w-3.5" /> Exporter CSV
+                </Button>
               </div>
               <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
                 {activeEventAttendees.registrations.map((reg) => (
                   <div key={reg.id} className="py-2.5 flex items-center justify-between gap-2 text-xs">
                     <div>
-                      <p className="font-bold text-zinc-900 dark:text-zinc-100">
-                        {reg.user?.username || `Utilisateur #${reg.userId}`}
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-zinc-900 dark:text-zinc-100">
+                          {reg.user?.username || reg.guestName || (reg.userId ? `Utilisateur #${reg.userId}` : 'Invité')}
+                        </p>
+                        {reg.userId ? (
+                          <Badge className="bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 text-[10px] px-1.5 py-0">
+                            Compte vérifié
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-blue-500/10 text-blue-600 border border-blue-500/20 text-[10px] px-1.5 py-0">
+                            Invité manuel
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-zinc-500 flex items-center gap-1 mt-0.5">
+                        <Mail className="h-3 w-3 text-zinc-400" />
+                        <span>{reg.user?.email || reg.guestEmail || 'Email non renseigné'}</span>
                       </p>
-                      <p className="text-zinc-500">{reg.user?.email}</p>
-                      {reg.user?.phone && (
-                        <p className="text-[11px] text-zinc-400">Tél : {reg.user.phone}</p>
+                      {(reg.user?.phone || reg.guestPhone) && (
+                        <p className="text-[11px] text-zinc-400 flex items-center gap-1 mt-0.5">
+                          <Phone className="h-3 w-3 text-zinc-400" />
+                          <span>{reg.user?.phone || reg.guestPhone}</span>
+                        </p>
                       )}
                     </div>
-                    <div className="text-right">
-                      {reg.user?.filiere && (
+                    <div className="text-right flex flex-col items-end gap-1">
+                      {(reg.user?.filiere || reg.guestFiliere) && (
                         <Badge variant="secondary" className="text-[10px]">
-                          {reg.user.filiere} {reg.user.classe ? `— ${reg.user.classe}` : ''}
+                          {reg.user?.filiere || reg.guestFiliere} {reg.user?.classe ? `— ${reg.user.classe}` : ''}
                         </Badge>
                       )}
-                      <p className="text-[10px] text-zinc-400 mt-1">
+                      <p className="text-[10px] text-zinc-400">
                         {new Date(reg.createdAt).toLocaleDateString('fr-FR', {
                           day: '2-digit',
                           month: 'short',
@@ -715,7 +768,7 @@ export function EventsAdminPage() {
             <div className="py-8 text-center text-xs text-zinc-500">
               <Users className="mx-auto h-8 w-8 text-zinc-400 mb-2" />
               <p className="font-bold">Aucune inscription enregistrée pour le moment.</p>
-              <p className="mt-1">Les étudiants peuvent s'inscrire en 1 clic sur la page publique.</p>
+              <p className="mt-1">Les étudiants peuvent s'inscrire en 1 clic ou manuellement sur la page publique.</p>
             </div>
           )}
         </div>

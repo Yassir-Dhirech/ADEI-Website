@@ -8,7 +8,12 @@ import {
   AlertCircle,
   FileEdit,
   Save,
-  Loader2
+  Loader2,
+  Users,
+  Download,
+  Mail,
+  Phone,
+  Search
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiRequest, getImageUrl } from '@/lib/api';
@@ -20,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { OrganizersMultiSelect } from '@/components/common/OrganizersMultiSelect';
 
 export function ClubPresidentPage() {
   const queryClient = useQueryClient();
@@ -52,6 +58,20 @@ export function ClubPresidentPage() {
     queryFn: () => apiRequest<EventItem[]>('/events/my-events')
   });
   const myEvents = eventsRes?.data || [];
+
+  // 3. Récupération de tous les clubs pour la sélection multi-organisateurs
+  const { data: allClubsRes } = useQuery({
+    queryKey: ['clubs'],
+    queryFn: () => apiRequest<ClubItem[]>('/clubs')
+  });
+  const allClubs = allClubsRes?.data || [];
+
+  const [selectedOrganizers, setSelectedOrganizers] = useState<string[]>([]);
+
+  // Modale Liste des Inscrits
+  const [attendeesModalOpen, setAttendeesModalOpen] = useState(false);
+  const [activeEventAttendees, setActiveEventAttendees] = useState<EventItem | null>(null);
+  const [attendeesSearch, setAttendeesSearch] = useState('');
 
   // 3. Formulaire de modification du Club
   const [clubForm, setClubForm] = useState({
@@ -120,6 +140,12 @@ export function ClubPresidentPage() {
       formData.append('time', eventForm.time);
       formData.append('location', eventForm.location);
       formData.append('category', eventForm.category);
+      const orgString = selectedOrganizers.join(' • ') || (club?.club || 'Club');
+      formData.append('organizer', orgString);
+      formData.append('organizers', JSON.stringify(selectedOrganizers));
+      if (club?.id) {
+        formData.append('clubId', String(club.id));
+      }
       formData.append('link', eventForm.link);
       formData.append('description', eventForm.description);
       if (eventImage) formData.append('image', eventImage);
@@ -159,6 +185,7 @@ export function ClubPresidentPage() {
 
   const openNewEventModal = () => {
     setEditingEvent(null);
+    setSelectedOrganizers(club?.club ? [club.club] : []);
     setEventForm({
       title: '',
       date: '',
@@ -174,17 +201,55 @@ export function ClubPresidentPage() {
 
   const openEditEventModal = (ev: EventItem) => {
     setEditingEvent(ev);
+    const orgs = ev.organizer ? ev.organizer.split(/[•,]/).map((s) => s.trim()).filter(Boolean) : (club?.club ? [club.club] : []);
+    setSelectedOrganizers(orgs.length > 0 ? orgs : (club?.club ? [club.club] : []));
     setEventForm({
       title: ev.title,
       date: ev.date,
       time: ev.time,
       location: ev.location,
-      category: ev.category || 'Atelier',
+      category: ev.category || 'Conférence',
       link: ev.link || '',
       description: ev.description
     });
     setEventImage(null);
     setEventModalOpen(true);
+  };
+
+  const handleOpenAttendees = (ev: EventItem) => {
+    setActiveEventAttendees(ev);
+    setAttendeesSearch('');
+    setAttendeesModalOpen(true);
+  };
+
+  const handleExportCSV = (ev: EventItem) => {
+    if (!ev.registrations || ev.registrations.length === 0) {
+      toast.error('Aucun inscrit à exporter.');
+      return;
+    }
+    const headers = ['Nom & Prénom', 'Email', 'Téléphone', 'Filière / Niveau', 'Type', 'Date d\'inscription'];
+    const rows = ev.registrations.map((reg) => [
+      reg.user?.username || reg.guestName || (reg.userId ? `Utilisateur #${reg.userId}` : 'Invité'),
+      reg.user?.email || reg.guestEmail || '',
+      reg.user?.phone || reg.guestPhone || '',
+      reg.user?.filiere ? `${reg.user.filiere} ${reg.user.classe ? `(${reg.user.classe})` : ''}` : (reg.guestFiliere || ''),
+      reg.userId ? 'Compte ENSA vérifié' : 'Invité manuel',
+      new Date(reg.createdAt).toLocaleString('fr-FR')
+    ]);
+
+    const csvContent = [
+      headers.map((h) => `"${h}"`).join(','),
+      ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `inscrits-${ev.title.replace(/[^a-zA-Z0-9]/g, '_')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Liste exportée en CSV avec succès !');
   };
 
   if (clubLoading) {
@@ -479,6 +544,14 @@ export function ClubPresidentPage() {
 
                   <div className="flex items-center gap-2">
                     <Button
+                      onClick={() => handleOpenAttendees(ev)}
+                      variant="secondary"
+                      className="h-9 gap-1.5 rounded-xl border border-zinc-200 text-xs font-semibold dark:border-zinc-700 hover:border-red-500/50"
+                    >
+                      <Users className="h-3.5 w-3.5 text-red-600" />
+                      <span>Inscrits ({ev.registrations?.length ?? ev.registrationsCount ?? 0})</span>
+                    </Button>
+                    <Button
                       onClick={() => openEditEventModal(ev)}
                       variant="outline"
                       className="h-9 gap-1.5 rounded-xl text-xs font-semibold"
@@ -579,6 +652,15 @@ export function ClubPresidentPage() {
           </div>
 
           <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Organisateurs &amp; Co-organisateurs</Label>
+            <OrganizersMultiSelect
+              selected={selectedOrganizers}
+              onChange={setSelectedOrganizers}
+              availableClubs={allClubs}
+            />
+          </div>
+
+          <div className="space-y-1.5">
             <Label className="text-xs font-semibold">Affiche de l'événement (JPG, PNG)</Label>
             <Input
               type="file"
@@ -619,6 +701,120 @@ export function ClubPresidentPage() {
             </Button>
           </div>
         </form>
+      </Modal>
+      {/* MODAL : LISTE DES ÉTUDIANTS INSCRITS */}
+      <Modal
+        open={attendeesModalOpen}
+        onClose={() => setAttendeesModalOpen(false)}
+        title={activeEventAttendees ? `Inscrits : ${activeEventAttendees.title}` : 'Liste des inscrits'}
+      >
+        <div className="space-y-4 max-h-[75vh] overflow-y-auto px-1">
+          {activeEventAttendees?.registrations && activeEventAttendees.registrations.length > 0 ? (
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-zinc-100 dark:border-zinc-800">
+                <div>
+                  <p className="font-bold text-xs text-zinc-800 dark:text-zinc-200">
+                    {activeEventAttendees.registrations.length} participant(s) enregistré(s)
+                  </p>
+                  <p className="text-[11px] text-zinc-500">
+                    Liste consolidée des étudiants connectés et inscriptions manuelles.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleExportCSV(activeEventAttendees)}
+                  className="h-8 gap-1.5 rounded-xl text-xs shrink-0 self-start sm:self-auto"
+                >
+                  <Download className="h-3.5 w-3.5" /> Exporter CSV
+                </Button>
+              </div>
+
+              {/* Barre de recherche */}
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-zinc-400" />
+                <Input
+                  value={attendeesSearch}
+                  onChange={(e) => setAttendeesSearch(e.target.value)}
+                  placeholder="Rechercher par nom, email, téléphone ou filière..."
+                  className="h-9 pl-9 text-xs rounded-xl"
+                />
+              </div>
+
+              {/* Liste des participants */}
+              <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                {activeEventAttendees.registrations
+                  .filter((reg) => {
+                    if (!attendeesSearch.trim()) return true;
+                    const q = attendeesSearch.toLowerCase();
+                    const name = (reg.user?.username || reg.guestName || '').toLowerCase();
+                    const email = (reg.user?.email || reg.guestEmail || '').toLowerCase();
+                    const phone = (reg.user?.phone || reg.guestPhone || '').toLowerCase();
+                    const filiere = (reg.user?.filiere || reg.guestFiliere || '').toLowerCase();
+                    return name.includes(q) || email.includes(q) || phone.includes(q) || filiere.includes(q);
+                  })
+                  .map((reg) => (
+                    <div key={reg.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-zinc-900 dark:text-zinc-100">
+                            {reg.user?.username || reg.guestName || (reg.userId ? `Utilisateur #${reg.userId}` : 'Invité')}
+                          </p>
+                          {reg.userId ? (
+                            <Badge className="bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 text-[10px] px-1.5 py-0">
+                              Compte vérifié
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-blue-500/10 text-blue-600 border border-blue-500/20 text-[10px] px-1.5 py-0">
+                              Invité manuel
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-zinc-500 flex items-center gap-1.5">
+                          <Mail className="h-3 w-3 text-zinc-400" />
+                          <a href={`mailto:${reg.user?.email || reg.guestEmail}`} className="hover:underline">
+                            {reg.user?.email || reg.guestEmail || 'Email non renseigné'}
+                          </a>
+                        </p>
+                        {(reg.user?.phone || reg.guestPhone) && (
+                          <p className="text-[11px] text-zinc-400 flex items-center gap-1.5">
+                            <Phone className="h-3 w-3 text-zinc-400" />
+                            <a href={`tel:${reg.user?.phone || reg.guestPhone}`} className="hover:underline">
+                              {reg.user?.phone || reg.guestPhone}
+                            </a>
+                          </p>
+                        )}
+                      </div>
+                      <div className="sm:text-right flex flex-row sm:flex-col items-start sm:items-end justify-between gap-1">
+                        {(reg.user?.filiere || reg.guestFiliere) && (
+                          <Badge variant="secondary" className="text-[10px]">
+                            {reg.user?.filiere || reg.guestFiliere} {reg.user?.classe ? `— ${reg.user.classe}` : ''}
+                          </Badge>
+                        )}
+                        <p className="text-[10px] text-zinc-400">
+                          {new Date(reg.createdAt).toLocaleDateString('fr-FR', {
+                            day: '2-digit',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ) : (
+            <div className="py-10 text-center text-xs text-zinc-500">
+              <Users className="mx-auto h-8 w-8 text-zinc-400 mb-2" />
+              <p className="font-bold">Aucun inscrit pour le moment.</p>
+              <p className="mt-1">
+                Les étudiants peuvent s'inscrire en 1 clic ou via le formulaire sur la page Actualités.
+              </p>
+            </div>
+          )}
+        </div>
       </Modal>
     </div>
   );

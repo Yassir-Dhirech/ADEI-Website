@@ -3,20 +3,31 @@ import sequelize from '../config/database';
 
 export interface EventRegistrationAttributes {
   id: number;
-  userId: number;
+  userId?: number | null;
   eventId: number;
+  guestName?: string | null;
+  guestEmail?: string | null;
+  guestPhone?: string | null;
+  guestFiliere?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-export type EventRegistrationCreationAttributes = Optional<EventRegistrationAttributes, 'id'>;
+export type EventRegistrationCreationAttributes = Optional<
+  EventRegistrationAttributes,
+  'id' | 'userId' | 'guestName' | 'guestEmail' | 'guestPhone' | 'guestFiliere'
+>;
 
 export class EventRegistration
   extends Model<EventRegistrationAttributes, EventRegistrationCreationAttributes>
   implements EventRegistrationAttributes {
   declare id: number;
-  declare userId: number;
+  declare userId: number | null;
   declare eventId: number;
+  declare guestName: string | null;
+  declare guestEmail: string | null;
+  declare guestPhone: string | null;
+  declare guestFiliere: string | null;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 }
@@ -30,13 +41,29 @@ EventRegistration.init(
     },
     userId: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       references: { model: 'users', key: 'id' }
     },
     eventId: {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: { model: 'events', key: 'id' }
+    },
+    guestName: {
+      type: DataTypes.STRING(255),
+      allowNull: true
+    },
+    guestEmail: {
+      type: DataTypes.STRING(255),
+      allowNull: true
+    },
+    guestPhone: {
+      type: DataTypes.STRING(50),
+      allowNull: true
+    },
+    guestFiliere: {
+      type: DataTypes.STRING(100),
+      allowNull: true
     }
   },
   {

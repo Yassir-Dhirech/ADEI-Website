@@ -32,11 +32,27 @@ if (env.isProduction || process.env.DATABASE_URL) {
     ALTER TABLE IF EXISTS filieres ADD COLUMN IF NOT EXISTS "drives" JSONB DEFAULT '{}';
     CREATE TABLE IF NOT EXISTS event_registrations (
       id SERIAL PRIMARY KEY,
-      "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      "userId" INTEGER REFERENCES users(id) ON DELETE CASCADE,
       "eventId" INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      "guestName" VARCHAR(255),
+      "guestEmail" VARCHAR(255),
+      "guestPhone" VARCHAR(50),
+      "guestFiliere" VARCHAR(100),
       "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-      "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-      UNIQUE ("userId", "eventId")
+      "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    );
+    ALTER TABLE IF EXISTS event_registrations ALTER COLUMN "userId" DROP NOT NULL;
+    ALTER TABLE IF EXISTS event_registrations ADD COLUMN IF NOT EXISTS "guestName" VARCHAR(255);
+    ALTER TABLE IF EXISTS event_registrations ADD COLUMN IF NOT EXISTS "guestEmail" VARCHAR(255);
+    ALTER TABLE IF EXISTS event_registrations ADD COLUMN IF NOT EXISTS "guestPhone" VARCHAR(50);
+    ALTER TABLE IF EXISTS event_registrations ADD COLUMN IF NOT EXISTS "guestFiliere" VARCHAR(100);
+    CREATE TABLE IF NOT EXISTS event_organizers (
+      id SERIAL PRIMARY KEY,
+      "eventId" INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      "clubId" INTEGER REFERENCES clubs(id) ON DELETE SET NULL,
+      "organizerName" VARCHAR(255) NOT NULL,
+      "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+      "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
     );
   `).catch((err: unknown) => {
     console.warn('[DB Auto-heal warning]:', err instanceof Error ? err.message : err);

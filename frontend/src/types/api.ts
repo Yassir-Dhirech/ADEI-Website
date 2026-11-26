@@ -63,19 +63,26 @@ export interface EventItem {
   club?: { id: number; club: string; president: string } | null;
   registrationsCount?: number;
   isRegistered?: boolean;
-  registrations?: Array<{
+  registrations?: EventAttendeeItem[];
+}
+
+export interface EventAttendeeItem {
+  id: number;
+  userId?: number | null;
+  eventId?: number;
+  guestName?: string | null;
+  guestEmail?: string | null;
+  guestPhone?: string | null;
+  guestFiliere?: string | null;
+  createdAt: string;
+  user?: {
     id: number;
-    userId: number;
-    createdAt: string;
-    user?: {
-      id: number;
-      username: string;
-      email: string;
-      phone?: string | null;
-      filiere?: string | null;
-      classe?: string | null;
-    } | null;
-  }>;
+    username: string;
+    email: string;
+    phone?: string | null;
+    filiere?: string | null;
+    classe?: string | null;
+  } | null;
 }
 
 export interface ClubItem {

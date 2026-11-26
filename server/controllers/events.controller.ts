@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import * as eventsService from '../services/events.service';
 import { findClubForUser } from '../services/clubs.service';
-import { User } from '../models';
+import { User, EventOrganizer } from '../models';
 import { sendSuccess, sendError } from '../utils/response';
 import {
   notifyAdminNewEventSubmission,
@@ -53,11 +53,71 @@ export const toggleRegistration = async (req: Request, res: Response) => {
 
 export const getRegistrations = async (req: Request, res: Response) => {
   try {
+    const userId = req.user!.id || req.user!.userId!;
+    const isAdmin = req.user!.role === 'admin';
     const eventId = String(req.params.id);
+
+    const event = await eventsService.getEventById(eventId);
+    if (!event) {
+      return sendError(res, 404, 'NOT_FOUND', 'Événement non trouvé');
+    }
+
+    if (!isAdmin) {
+      let isAuthorized = event.submittedBy === userId;
+
+      if (!isAuthorized) {
+        const userClub = await findClubForUser(userId);
+        if (userClub) {
+          if (event.clubId === userClub.id) {
+            isAuthorized = true;
+          } else if (event.organizer && event.organizer.toLowerCase().includes(userClub.club.toLowerCase())) {
+            isAuthorized = true;
+          } else {
+            const coOrg = await EventOrganizer.findOne({
+              where: { eventId: event.id, clubId: userClub.id }
+            });
+            if (coOrg) {
+              isAuthorized = true;
+            }
+          }
+        }
+      }
+
+      if (!isAuthorized) {
+        return sendError(res, 403, 'FORBIDDEN', "Vous n'avez pas l'autorisation de consulter la liste des inscrits pour cet événement");
+      }
+    }
+
     const attendees = await eventsService.getEventRegistrations(eventId);
     return sendSuccess(res, attendees);
   } catch {
     return sendError(res, 500, 'SERVER_ERROR', "Erreur lors de la récupération des inscrits");
+  }
+};
+
+export const registerGuest = async (req: Request, res: Response) => {
+  try {
+    const eventId = String(req.params.id);
+    const { guestName, guestEmail, guestPhone, guestFiliere } = req.body;
+
+    const result = await eventsService.registerGuestForEvent(eventId, {
+      guestName,
+      guestEmail,
+      guestPhone,
+      guestFiliere
+    });
+
+    if (!result.ok) {
+      return sendError(res, result.status || 400, 'BAD_REQUEST', result.message || "Erreur lors de l'inscription");
+    }
+
+    return sendSuccess(res, { count: result.count }, {
+      status: 201,
+      message: 'Votre inscription a bien été enregistrée !'
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Erreur inconnue';
+    return sendError(res, 500, 'SERVER_ERROR', `Erreur lors de l'inscription: ${msg}`);
   }
 };
 

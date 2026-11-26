@@ -157,6 +157,13 @@ export function NewsPage() {
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
 
+  // Formulaire d'inscription manuelle invité
+  const [guestName, setGuestName] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
+  const [guestFiliere, setGuestFiliere] = useState('Génie Informatique');
+  const [guestRegisteredEvents, setGuestRegisteredEvents] = useState<number[]>([]);
+
   // Mutation d'inscription / désinscription en 1 clic
   const registerMutation = useMutation({
     mutationFn: async (eventId: number) => {
@@ -182,6 +189,41 @@ export function NewsPage() {
             }
           : prev
       );
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de l'inscription");
+    }
+  });
+
+  // Mutation d'inscription invité (sans compte)
+  const guestRegisterMutation = useMutation({
+    mutationFn: async ({
+      eventId,
+      data
+    }: {
+      eventId: number;
+      data: { guestName: string; guestEmail: string; guestPhone: string; guestFiliere: string };
+    }) => {
+      return apiRequest<{ count: number }>(`/events/${eventId}/register-guest`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+    onSuccess: (res, variables) => {
+      toast.success('Votre inscription a été confirmée avec succès !');
+      setGuestRegisteredEvents((prev) => [...prev, variables.eventId]);
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      setSelectedEvent((prev) =>
+        prev && prev.id === variables.eventId
+          ? {
+              ...prev,
+              registrationsCount: res.data?.count ?? (prev.registrationsCount || 0) + 1
+            }
+          : prev
+      );
+      setGuestName('');
+      setGuestEmail('');
+      setGuestPhone('');
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : "Erreur lors de l'inscription");
@@ -636,22 +678,29 @@ export function NewsPage() {
               {selectedEvent.description}
             </p>
 
-            {/* Section Billetterie & Inscription en 1 clic */}
-            <div className="flex flex-col gap-3 rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-800/40 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-0.5">
-                <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-                  Participation &amp; Inscription
-                </p>
-                <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                  {selectedEvent.registrationsCount || 0} étudiant(s) ont déjà réservé leur place.
-                </p>
-              </div>
-
-              {selectedEvent.date && checkIsPast(selectedEvent.date, selectedEvent.time) ? (
+            {/* Section Billetterie & Inscription */}
+            {selectedEvent.date && checkIsPast(selectedEvent.date, selectedEvent.time) ? (
+              <div className="flex items-center justify-between rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-800/40">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">Participation</p>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                    {selectedEvent.registrationsCount || 0} participant(s) ont assisté à cet événement.
+                  </p>
+                </div>
                 <span className="rounded-xl bg-zinc-200/70 px-3.5 py-2 text-xs font-medium text-zinc-500 dark:bg-zinc-800">
                   Inscriptions clôturées
                 </span>
-              ) : user ? (
+              </div>
+            ) : user ? (
+              <div className="flex flex-col gap-3 rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-800/40 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                    Participation &amp; Inscription
+                  </p>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                    {selectedEvent.registrationsCount || 0} étudiant(s) ont déjà réservé leur place.
+                  </p>
+                </div>
                 <Button
                   type="button"
                   onClick={() => registerMutation.mutate(selectedEvent.id)}
@@ -673,15 +722,126 @@ export function NewsPage() {
                     </>
                   )}
                 </Button>
-              ) : (
-                <Link
-                  to="/login"
-                  className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-red-600 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-red-700"
-                >
-                  Connectez-vous pour vous inscrire
-                </Link>
-              )}
-            </div>
+              </div>
+            ) : guestRegisteredEvents.includes(selectedEvent.id) ? (
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-800 dark:text-emerald-300">
+                <div className="flex items-center gap-2 font-bold text-sm">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <span>Votre inscription a bien été enregistrée !</span>
+                </div>
+                <p className="mt-1 text-xs">
+                  Vos coordonnées ont été transmises aux organisateurs de l'événement.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-800/40">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-zinc-200/60 pb-3 dark:border-zinc-700/60">
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                      Participation &amp; Inscription
+                    </p>
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                      {selectedEvent.registrationsCount || 0} participant(s) déjà inscrit(s).
+                    </p>
+                  </div>
+                  <Link
+                    to={`/login?redirect=/news?tab=events`}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-red-600 px-3.5 text-xs font-bold text-white shadow-sm transition hover:bg-red-700 shrink-0 self-start sm:self-auto"
+                  >
+                    <Ticket className="h-3.5 w-3.5" /> Se connecter pour s'inscrire en 1 clic
+                  </Link>
+                </div>
+
+                <div className="space-y-3 pt-1">
+                  <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                    Ou remplissez vos coordonnées ci-dessous pour vous inscrire sans compte :
+                  </p>
+
+                  <div className="grid gap-2.5 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400">Nom &amp; Prénom *</label>
+                      <Input
+                        value={guestName}
+                        onChange={(e) => setGuestName(e.target.value)}
+                        placeholder="Ex: Mohammed Amine"
+                        className="h-9 rounded-xl text-xs bg-white dark:bg-zinc-900"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400">Adresse Email *</label>
+                      <Input
+                        type="email"
+                        value={guestEmail}
+                        onChange={(e) => setGuestEmail(e.target.value)}
+                        placeholder="etudiant@usmba.ac.ma"
+                        className="h-9 rounded-xl text-xs bg-white dark:bg-zinc-900"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400">Numéro de téléphone *</label>
+                      <Input
+                        value={guestPhone}
+                        onChange={(e) => setGuestPhone(e.target.value)}
+                        placeholder="06 12 34 56 78"
+                        className="h-9 rounded-xl text-xs bg-white dark:bg-zinc-900"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400">Filière / Niveau *</label>
+                      <select
+                        value={guestFiliere}
+                        onChange={(e) => setGuestFiliere(e.target.value)}
+                        className="w-full h-9 rounded-xl border border-zinc-200 bg-white px-3 text-xs dark:border-zinc-800 dark:bg-zinc-900 focus:outline-none focus:ring-1 focus:ring-red-500"
+                      >
+                        <option value="CP 1">Cycle Préparatoire — CP 1</option>
+                        <option value="CP 2">Cycle Préparatoire — CP 2</option>
+                        <option value="Génie Informatique">Génie Informatique (GI)</option>
+                        <option value="Génie Télécom & Réseaux">Génie Télécom &amp; Réseaux (GTR)</option>
+                        <option value="Génie Industriel">Génie Industriel (GIND)</option>
+                        <option value="Génie Procédés & Environnement">Génie des Procédés (GCP)</option>
+                        <option value="Génie Énergétique">Génie Énergétique (GE)</option>
+                        <option value="Génie Mécanique">Génie Mécanique (GSM)</option>
+                        <option value="Autre / Invité">Autre / Invité extérieur</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-1">
+                    <Button
+                      type="button"
+                      disabled={guestRegisterMutation.isPending || !guestName.trim() || !guestEmail.trim() || !guestPhone.trim()}
+                      onClick={() => {
+                        if (!guestName.trim() || !guestEmail.trim() || !guestPhone.trim()) {
+                          toast.error('Veuillez renseigner votre nom, email et téléphone.');
+                          return;
+                        }
+                        guestRegisterMutation.mutate({
+                          eventId: selectedEvent.id,
+                          data: {
+                            guestName: guestName.trim(),
+                            guestEmail: guestEmail.trim(),
+                            guestPhone: guestPhone.trim(),
+                            guestFiliere: guestFiliere.trim()
+                          }
+                        });
+                      }}
+                      className="h-9 gap-1.5 rounded-xl bg-red-600 px-4 text-xs font-bold text-white hover:bg-red-700"
+                    >
+                      {guestRegisterMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Ticket className="h-3.5 w-3.5" /> Valider mon inscription
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <a

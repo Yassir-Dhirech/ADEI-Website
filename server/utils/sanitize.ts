@@ -10,7 +10,7 @@ export type SanitizeEntity =
 
 export const ALLOWED_FIELDS: Record<SanitizeEntity, readonly string[]> = {
   news: ['title', 'content', 'date', 'clubId', 'organizer', 'image', 'document', 'link', 'category', 'order_display'],
-  events: ['title', 'description', 'date', 'time', 'location', 'category', 'clubId', 'organizer', 'image', 'document', 'link', 'order_display'],
+  events: ['title', 'description', 'date', 'time', 'location', 'category', 'clubId', 'organizer', 'organizers', 'image', 'document', 'link', 'order_display'],
   clubs: ['club', 'president', 'presidentId', 'annees_etude', 'tel', 'email', 'website', 'image', 'description', 'activities', 'achievements', 'members', 'facebook', 'instagram', 'linkedin'],
   feedbacks: ['name', 'email', 'type', 'message'],
   'adei-members': ['name', 'role', 'roleId', 'mandate', 'email', 'photo'],

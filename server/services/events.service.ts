@@ -1,8 +1,10 @@
-import { Event, Club, User, EventRegistration } from '../models';
+import { Op } from 'sequelize';
+import { Event, Club, User, EventRegistration, EventOrganizer } from '../models';
 import { getCachedData, setCachedData, clearCache } from '../utils/cache';
 import { pickFields } from '../utils/sanitize';
 import { parsePagination, buildPaginationMeta, PaginationMeta } from '../utils/pagination';
 import { storageService } from './storage.service';
+import { findClubForUser } from './clubs.service';
 
 type UploadedFields = Record<string, Express.Multer.File[]> | Express.Multer.File[] | undefined;
 
@@ -11,12 +13,63 @@ function getFieldFile(files: UploadedFields, field: string): Express.Multer.File
   return files[field]?.[0];
 }
 
+export function extractOrganizers(body: Record<string, unknown>): string[] {
+  let list: string[] = [];
+  if (Array.isArray(body.organizers)) {
+    list = body.organizers.map((s) => String(s).trim()).filter(Boolean);
+  } else if (typeof body.organizers === 'string' && body.organizers.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(body.organizers);
+      if (Array.isArray(parsed)) {
+        list = parsed.map((s) => String(s).trim()).filter(Boolean);
+      }
+    } catch {
+      // fallback
+    }
+  }
+
+  if (list.length === 0 && typeof body.organizer === 'string' && body.organizer.trim()) {
+    list = body.organizer.split(/[•,]/).map((s) => s.trim()).filter(Boolean);
+  }
+
+  return Array.from(new Set(list));
+}
+
+async function syncEventOrganizers(eventId: number, orgList: string[]): Promise<void> {
+  try {
+    await EventOrganizer.destroy({ where: { eventId } });
+    if (orgList.length === 0) return;
+
+    const allClubs = await Club.findAll({ attributes: ['id', 'club'] });
+    const clubMap = new Map<string, number>();
+    for (const c of allClubs) {
+      clubMap.set(c.club.toLowerCase().trim(), c.id);
+    }
+
+    for (const orgName of orgList) {
+      const matchedClubId = clubMap.get(orgName.toLowerCase().trim()) || null;
+      await EventOrganizer.create({
+        eventId,
+        clubId: matchedClubId,
+        organizerName: orgName
+      });
+    }
+  } catch (err) {
+    console.warn('[syncEventOrganizers error]:', err instanceof Error ? err.message : err);
+  }
+}
+
 async function normalizeEventInput(
   body: Record<string, unknown>,
   files: UploadedFields,
   existing?: Event | null
 ): Promise<Record<string, unknown>> {
   const data = pickFields(body, 'events');
+
+  const orgList = extractOrganizers(body);
+  if (orgList.length > 0) {
+    data.organizer = orgList.join(' • ');
+  }
 
   if (data.clubId === 'adei' || data.clubId === 'ensa') {
     data.organizer = data.clubId === 'adei' ? 'ADEI' : 'Administration ENSA Fès';
@@ -99,6 +152,10 @@ export async function listEvents(
 export async function createEvent(body: Record<string, unknown>, files: UploadedFields): Promise<Event> {
   const input = await normalizeEventInput(body, files);
   const event = await Event.create(input);
+  const orgList = extractOrganizers(body);
+  if (orgList.length > 0) {
+    await syncEventOrganizers(event.id, orgList);
+  }
   clearCache('events');
   return event;
 }
@@ -109,6 +166,10 @@ export async function updateEvent(id: string | number, body: Record<string, unkn
 
   const input = await normalizeEventInput(body, files, existing);
   await existing.update(input);
+  const orgList = extractOrganizers(body);
+  if (orgList.length > 0 || body.organizers !== undefined || body.organizer !== undefined) {
+    await syncEventOrganizers(existing.id, orgList);
+  }
   clearCache('events');
   return existing;
 }
@@ -154,10 +215,49 @@ export async function getEventById(id: string | number): Promise<Event | null> {
 }
 
 export async function listEventsForUser(userId: number): Promise<Event[]> {
+  const userClub = await findClubForUser(userId);
+  let whereClause: Record<string, unknown> = { submittedBy: userId };
+
+  if (userClub) {
+    const coOrgEvents = await EventOrganizer.findAll({
+      where: { clubId: userClub.id },
+      attributes: ['eventId']
+    });
+    const coOrgEventIds = coOrgEvents.map((o) => o.eventId);
+
+    const orConditions: Array<Record<string, unknown>> = [
+      { submittedBy: userId },
+      { clubId: userClub.id }
+    ];
+
+    if (coOrgEventIds.length > 0) {
+      orConditions.push({ id: { [Op.in]: coOrgEventIds } });
+    }
+
+    whereClause = {
+      [Op.or]: orConditions
+    };
+  }
+
   return Event.findAll({
-    where: { submittedBy: userId },
+    where: whereClause,
     order: [['createdAt', 'DESC']],
-    include: [{ model: Club, as: 'club', attributes: ['id', 'club', 'president'], required: false }]
+    include: [
+      { model: Club, as: 'club', attributes: ['id', 'club', 'president'], required: false },
+      {
+        model: EventRegistration,
+        as: 'registrations',
+        attributes: ['id', 'userId', 'guestName', 'guestEmail', 'guestPhone', 'guestFiliere', 'createdAt'],
+        required: false,
+        include: [
+          {
+            model: User,
+            as: 'user',
+            attributes: ['id', 'username', 'email', 'phone', 'filiere', 'classe']
+          }
+        ]
+      }
+    ]
   });
 }
 
@@ -170,7 +270,7 @@ export async function listModerationEvents(): Promise<Event[]> {
       {
         model: EventRegistration,
         as: 'registrations',
-        attributes: ['id', 'userId', 'createdAt'],
+        attributes: ['id', 'userId', 'guestName', 'guestEmail', 'guestPhone', 'guestFiliere', 'createdAt'],
         include: [
           {
             model: User,
@@ -214,6 +314,75 @@ export async function toggleEventRegistration(
 
   clearCache('events');
   return { ok: true, registered, count };
+}
+
+export async function registerGuestForEvent(
+  eventId: string | number,
+  guestData: {
+    guestName: string;
+    guestEmail: string;
+    guestPhone?: string;
+    guestFiliere?: string;
+  }
+): Promise<{ ok: boolean; status?: number; message?: string; count: number }> {
+  const event = await Event.findByPk(eventId);
+  if (!event) {
+    return { ok: false, status: 404, message: 'Événement non trouvé', count: 0 };
+  }
+
+  const email = guestData.guestEmail.trim().toLowerCase();
+
+  const existingGuest = await EventRegistration.findOne({
+    where: {
+      eventId: Number(eventId),
+      guestEmail: email
+    }
+  });
+
+  if (existingGuest) {
+    const totalCount = await EventRegistration.count({ where: { eventId: Number(eventId) } });
+    return {
+      ok: false,
+      status: 400,
+      message: 'Une inscription existe déjà avec cette adresse email pour cet événement.',
+      count: totalCount
+    };
+  }
+
+  const userWithEmail = await User.findOne({ where: { email } });
+  if (userWithEmail) {
+    const userReg = await EventRegistration.findOne({
+      where: {
+        eventId: Number(eventId),
+        userId: userWithEmail.id
+      }
+    });
+    if (userReg) {
+      const totalCount = await EventRegistration.count({ where: { eventId: Number(eventId) } });
+      return {
+        ok: false,
+        status: 400,
+        message: 'Vous êtes déjà inscrit(e) à cet événement avec votre compte étudiant.',
+        count: totalCount
+      };
+    }
+  }
+
+  await EventRegistration.create({
+    eventId: Number(eventId),
+    userId: userWithEmail ? userWithEmail.id : null,
+    guestName: guestData.guestName.trim(),
+    guestEmail: email,
+    guestPhone: guestData.guestPhone ? guestData.guestPhone.trim() : null,
+    guestFiliere: guestData.guestFiliere ? guestData.guestFiliere.trim() : null
+  });
+
+  const count = await EventRegistration.count({
+    where: { eventId: Number(eventId) }
+  });
+
+  clearCache('events');
+  return { ok: true, count };
 }
 
 export async function getEventRegistrations(eventId: string | number) {

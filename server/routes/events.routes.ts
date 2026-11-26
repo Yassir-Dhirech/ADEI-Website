@@ -4,7 +4,7 @@ import { upload, validateUploadedFiles } from '../config/upload';
 import { authMiddleware, adminMiddleware, optionalAuthMiddleware } from '../middleware/auth';
 import { asyncWrapper } from '../middleware/errorHandler';
 import { validate } from '../middleware/validate';
-import { eventCreateSchema, eventUpdateSchema } from '../validators/schemas';
+import { eventCreateSchema, eventUpdateSchema, eventGuestRegisterSchema } from '../validators/schemas';
 
 const router = Router();
 
@@ -16,9 +16,10 @@ const eventUpload = upload.fields([
 // Route publique (événements validés uniquement, avec reconnaissance optionnelle de l'utilisateur connecté)
 router.get('/', optionalAuthMiddleware, asyncWrapper(eventsController.getAll));
 
-// Inscription étudiante (1 clic) & Consultation des inscrits (Admin / Organisateur)
+// Inscription étudiante (1 clic connecté ou formulaire invité public) & Consultation des inscrits (Admin / Organisateur)
 router.post('/:id/register', authMiddleware, asyncWrapper(eventsController.toggleRegistration));
-router.get('/:id/registrations', authMiddleware, adminMiddleware, asyncWrapper(eventsController.getRegistrations));
+router.post('/:id/register-guest', validate(eventGuestRegisterSchema), asyncWrapper(eventsController.registerGuest));
+router.get('/:id/registrations', authMiddleware, asyncWrapper(eventsController.getRegistrations));
 
 // Espace Président : consulter ses propres événements soumis
 router.get('/my-events', authMiddleware, asyncWrapper(eventsController.getMyEvents));
